@@ -386,8 +386,9 @@ in front of the app:
      local.
    - `secret_key.txt` is created with `0600` permissions — back it up; if it
      changes, all sessions are invalidated (users just log in again).
-   - Keep `waitress` installed (`pip install -r requirements.txt`) — it is
-     the production WSGI server; without it the Flask dev server is used.
+   - `waitress` is installed and **is** what's serving now (confirm with
+     the `Server: waitress` response header); the app only falls back to
+     the Flask dev server if it's ever uninstalled.
    - Rate limiting: 5 failed logins per 5 minutes per IP, lockout message
      on the login page.
 
@@ -642,4 +643,82 @@ the UI renders under an automated WCAG AA guard.
   `#aab6c3` body; light tooltip unchanged; theme toggles re-read
   correctly; served `?v=8`; overview statuses, public-status pills and
   chips render at the ink colours; zero console errors.
+
+## V2.3 Phase 10 — network deployment & hardening
+
+Two workstreams: make the app comfortably reachable from other
+computers on the LAN, and harden it now that it's a real deployment.
+
+### A — LAN access (other computers can open it)
+
+- **Production server**: `waitress` installed (3.0.2) — the app now
+  serves with 8 worker threads instead of the Flask dev server.
+  Confirmed by the `Server: waitress` response header; no new
+  development-server warnings appear in `monitor.log`.
+- **Address**: the server listens on all interfaces, so any machine
+  on your network opens **`http://192.168.68.64:5000`** (check
+  `ipconfig` for your current IP — DHCP can change it) and
+  **`/status`** needs no login at all. Verified live from this
+  machine against the LAN IP.
+- **Autostart**: Scheduled task **"Uptime Monitor"** runs the app
+  hidden (`pythonw app.py`, working dir = project folder) at logon,
+  with no execution time limit and up to 5 automatic restarts at
+  1-minute intervals if it ever crashes. Manage it with
+  `Start-ScheduledTask "Uptime Monitor"` /
+  `Stop-ScheduledTask "Uptime Monitor"`.
+  - A *boot-time* trigger was denied (this account is not an
+    administrator). With an admin shell:
+    `Register-ScheduledTask ... (New-ScheduledTaskTrigger -AtStartup)`
+    adds "runs even before anyone logs in".
+- **Firewall**: inbound **TCP 5000** is already allowed by the
+  existing `Monitoring` / `SpeedTestMonitoring` rules — but only on
+  the **Private** profile. Keep the Wi-Fi network profile Private
+  (Settings → Network → Wi-Fi → your network → Private), or add a
+  Public-profile rule from an admin shell:
+  `New-NetFirewallRule -DisplayName "Uptime Monitor" -Direction Inbound -Protocol TCP -LocalPort 5000 -Profile Private,Public -Action Allow`
+- **Stable URL**: reserve the current IP for this machine in your
+  router's DHCP settings (router admin → DHCP reservation), or use
+  the computer name (`http://BCGI-LPTP-ORT00:5000`) — then the
+  address never changes when DHCP renews.
+- **Wire security**: plain HTTP over Wi-Fi means the admin password
+  travels unencrypted. On a trusted home/office LAN that's a
+  judgment call; for anything else, terminate TLS in front (see
+  *Production hardening & TLS* above) and set `SECURE_COOKIES=1`.
+
+### B — Hardening
+
+- **Content-Security-Policy** added to every response (alongside the
+  existing `X-Content-Type-Options`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, `Permissions-Policy`):
+  `default-src 'self'`, Chart.js + Google Fonts origins (dropped in
+  Phase 11 when they're self-hosted), `frame-ancestors 'none'`,
+  `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`.
+  Deliberately **no** `upgrade-insecure-requests` — the LAN install
+  is plain HTTP.
+- **Branded error pages** (`templates/error.html`): 404 and 500 now
+  render a dark-theme-aware card with links back to the dashboard and
+  the public status page — no Werkzeug branding, and 500s never echo
+  the exception (details only in `monitor.log`). The page loads no
+  CDN/web-font resources, so it renders with the internet down.
+  `/status`'s own inline 404 stays untouched (tested).
+- **Version control**: `git init` on `main`, `.gitignore` extended
+  (`monitor.log*` rotations + `speedtest.exe` vendor binary; the
+  existing entries already excluded `uptime.db`, `secret_key.txt`,
+  `backups/`, caches). Initial commit `5e90e4f` — verified that no
+  secret, database, log, backup or binary is tracked.
+- **Tests**: `tests/test_hardening.py` — 11 tests covering the CSP
+  shape (and its current asset origins), header persistence on static
+  + error responses, branded 404/500 with no leaks, the preserved
+  `/status` inline 404, and error-page hygiene.
+
+### Verification
+
+- `python -m pytest -q` → **179 passed**.
+- Live probe **22/22**: waitress header, full security-header set,
+  branded 404 (status + content + headers), `/status` still
+  `no-store`, LAN URL answering 200 on waitress, static with nosniff.
+- Lighthouse after the fixes: dashboard accessibility **94 → 98**
+  (color-contrast gone), `/status` accessibility **100**. Remaining
+  findings (heading-order, meta descriptions, label mismatch) are
+  Phase 11 items.
 
