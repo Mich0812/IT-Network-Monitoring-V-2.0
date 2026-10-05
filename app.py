@@ -35,6 +35,7 @@ from config import (
     AGENT_STALE_SECONDS,
     PUBLIC_STATUS,
     STATUS_STALE_SECONDS,
+    MAINTENANCE,
 )
 
 
@@ -287,7 +288,8 @@ def initialize_database():
             download REAL,
             upload REAL,
             ping REAL,
-            server TEXT
+            server TEXT,
+            status TEXT NOT NULL DEFAULT 'ok'
         )
     """)
 
@@ -309,6 +311,17 @@ def initialize_database():
                 "ADD COLUMN company TEXT "
                 "NOT NULL DEFAULT 'Company A'"
             )
+
+    # Migration: "status" marks failed speedtest runs ('ok' for every
+    # pre-existing row; failed rows keep NULL speeds + reason in
+    # server). Charts filter on it, so it must exist before serving.
+    try:
+        conn.execute(
+            "ALTER TABLE speedtest_results "
+            "ADD COLUMN status TEXT NOT NULL DEFAULT 'ok'"
+        )
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
     # Migration: "source" distinguishes results polled by this server
     # ('local', the default) from ones pushed in by a remote agent.
@@ -1382,6 +1395,27 @@ def _public_uptime(company):
     return out
 
 
+def _active_maintenance(companies):
+    """Companies currently inside a maintenance window from config.
+
+    Reuses the checker's window logic (uptime_checker._in_maintenance)
+    so the public banner and the alert suppression can never disagree.
+    The status page must never 500 over banner trouble, hence the guard.
+    """
+    try:
+        import uptime_checker as uc
+    except Exception:
+        return []
+    active = []
+    for name in companies:
+        try:
+            if uc._in_maintenance(name):
+                active.append(name)
+        except Exception:
+            continue
+    return active
+
+
 @app.route("/status")
 def public_status():
     """Public status page - intentionally NO login check.
@@ -1476,6 +1510,7 @@ def public_status():
             "companies": companies,
             "cards": cards,
             "stale_banner": stale_banner,
+            "maintenance_active": _active_maintenance(companies),
             "now_label": now_label,
         })
 
@@ -1513,6 +1548,7 @@ def public_status():
     return render({
         "companies": companies,
         "company": company,
+        "maintenance_active": _active_maintenance([company]),
         "checks": checks,
         "state": state,
         "state_label": state_label,
@@ -2117,6 +2153,8 @@ def speedtest_data():
 
         AND company = ?
 
+        AND status = 'ok'
+
         ORDER BY timestamp ASC
         """,
         (
@@ -2187,6 +2225,8 @@ def recent_speedtest():
 
         WHERE company = ?
 
+        AND status = 'ok'
+
         ORDER BY id DESC
 
         LIMIT 10
@@ -2196,7 +2236,25 @@ def recent_speedtest():
         )
     ).fetchall()
 
+    # Failed attempts get recorded too. Surface the latest row only
+    # when the MOST RECENT attempt is a failure - then the chart gap
+    # has an explanation instead of just silence.
+    last = conn.execute(
+        "SELECT status, timestamp, server FROM speedtest_results "
+        "WHERE company = ? "
+        "ORDER BY id DESC "
+        "LIMIT 1",
+        (SPEEDTEST_COMPANY,),
+    ).fetchone()
+
     conn.close()
+
+    last_failure = None
+    if last and last["status"] == "failed":
+        last_failure = {
+            "timestamp": last["timestamp"],
+            "reason": last["server"],
+        }
 
     data = []
 
@@ -2212,7 +2270,8 @@ def recent_speedtest():
 
     return {
         "results": data,
-        "company": SPEEDTEST_COMPANY
+        "company": SPEEDTEST_COMPANY,
+        "last_failure": last_failure,
     }
 
 
@@ -2777,6 +2836,33 @@ def agents_revoke_token(company):
 # ============================================================
 # LOGOUT
 # ============================================================
+
+@app.route("/alerts")
+@require_admin
+def alerts_page():
+    """Admin page: alert channels, thresholds, maintenance windows,
+    the Send-test-alert button and the recent notifications log."""
+    import uptime_checker as uc
+
+    conn = get_db()
+    recent = conn.execute(
+        """
+        SELECT company, check_type, kind, message, channel, sent_at, status
+        FROM notifications
+        ORDER BY sent_at DESC, id DESC
+        LIMIT 20
+        """
+    ).fetchall()
+    conn.close()
+
+    return render_template(
+        "alerts.html",
+        username=session.get("username", "User"),
+        alerts_cfg=uc.ALERTS,
+        maintenance_windows=MAINTENANCE,
+        recent_alerts=[dict(row) for row in recent],
+    )
+
 
 @app.route("/logout")
 def logout():

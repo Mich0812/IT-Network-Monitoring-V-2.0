@@ -13,6 +13,7 @@
         {% if role == "admin" %}
         <a href="/users" class="nav-item{% if active_page == "users" %} active{% endif %}"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Users</span></a>
         <a href="/agents" class="nav-item{% if active_page == "agents" %} active{% endif %}"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8M8 13h.01M12 13h.01M16 13h.01M8 17h8"/></svg></span><span>Agents</span></a>
+        <a href="/alerts" class="nav-item{% if active_page == "alerts" %} active{% endif %}"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span><span>Alerts</span></a>
         {% endif %}
     </nav>
     <div class="sidebar-bottom">

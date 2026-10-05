@@ -788,3 +788,56 @@ Chart.js CDN - and the shared template code collapsed into partials.
   accessibility **100**, best-practices **100**, SEO **100**, zero
   failures, zero console messages on all three.
 
+## V2.3 Phase 12 - monitoring features
+
+### A - Alerts admin page (`/alerts`, admin only)
+
+- New `templates/alerts.html` + `GET /alerts` (`require_admin`):
+  channels (email/webhook state + targets), thresholds
+  (down/latency/cooldown), maintenance windows, and the last 20
+  entries of the `notifications` history.
+- **Send test alert** button POSTs `/api/alerts/test` (the endpoint
+  existed since Phase 1 - this gives it a UI) and reports the
+  outcome inline; every attempt, delivered or not, lands in the
+  history.
+- The sidebar partial and the dashboard's own nav gained a gated
+  Alerts item (bell icon).
+
+### B - Speedtest failure recording (schema migration)
+
+- `speedtest_results.status` (`'ok'` default / `'failed'`) added in
+  both initializers (app + checker) via CREATE + `ALTER TABLE ...
+  DEFAULT` migration - existing databases upgrade in place and old
+  rows stay `'ok'`.
+- `run_speedtest()` records every failure path (binary missing, exit
+  code, no result object, timeout, bad JSON, exceptions) through
+  `save_speedtest_failure()`: NULL speeds and `FAILED: <reason>` in
+  `server`.
+- Charts and the recent list filter `status='ok'`, so no nulls reach
+  Chart.js; `/api/speedtest/recent` additionally returns
+  `last_failure` - only when the most recent attempt failed, which
+  turns an unexplained chart gap into a stated cause.
+
+### C - Maintenance banner on `/status`
+
+- The `MAINTENANCE` config (which already silenced alerts in the
+  checker) now surfaces publicly: `_active_maintenance()` reuses
+  `uptime_checker._in_maintenance()`, so the banner and the alert
+  suppression can never disagree. Overview and detail pages render a
+  `.pub-banner-info` "Scheduled maintenance" banner for the affected
+  companies. The helper guards per company - a broken window
+  definition can never take the public page down (tested).
+
+### Tests & verification
+
+- New `tests/test_phase12.py` - 16 tests: page access per role,
+  admin-only nav, config display, test-alert endpoint semantics,
+  the status column, failure recording (including a stubbed
+  `run_speedtest` - no real speedtest ever runs in tests),
+  chart/recent filtering, and banner presence/absence/broken-config.
+- `python -m pytest -q` -> **208 passed**.
+- Live: `/alerts` renders (active nav, four cards), Send test
+  alert answered inline and recorded `kind=test` rows;
+  `/status` unaffected with an empty window list; Lighthouse on
+  `/status` + `/alerts`: **100/100/100**, zero console messages.
+

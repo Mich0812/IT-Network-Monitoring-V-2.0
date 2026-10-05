@@ -2802,6 +2802,12 @@ td.server {
     border-left: 4px solid var(--down);
 }
 
+.pub-banner-info {
+    background: var(--brand-soft);
+    color: var(--ink);
+    border-left: 4px solid var(--brand);
+}
+
 .pub-section {
     margin-top: 32px;
 }

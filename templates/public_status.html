@@ -119,6 +119,14 @@
         </p>
     </div>
 
+    {% if maintenance_active %}
+    <div class="pub-banner pub-banner-info" role="status">
+        <strong>Scheduled maintenance</strong> in progress for
+        {{ maintenance_active|join(", ") }} - results may be delayed
+        or checks paused during the window.
+    </div>
+    {% endif %}
+
     {% if stale_banner %}
     <div class="pub-banner pub-banner-warn">{{ stale_banner }}</div>
     {% endif %}
@@ -226,6 +234,14 @@
         </div>
         <p class="pub-meta">Updated {{ now_label }} UTC &middot; refreshes automatically</p>
     </div>
+
+    {% if maintenance_active %}
+    <div class="pub-banner pub-banner-info" role="status">
+        <strong>Scheduled maintenance</strong> in progress for
+        {{ maintenance_active|join(", ") }} - results may be delayed
+        or checks paused during the window.
+    </div>
+    {% endif %}
 
     {% if stale_banner %}
     <div class="pub-banner pub-banner-warn">{{ stale_banner }}</div>

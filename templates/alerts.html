@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerts - Uptime Monitor</title>
+    <meta name="description" content="Alert configuration - notification channels, thresholds, maintenance windows and the recent alert history.">
+    {% include "partials/head_assets.html" %}
+
+    <script>
+        /* Restore theme before first paint - avoids a flash of the wrong theme. */
+        (function() {
+            var saved = null;
+            try { saved = localStorage.getItem("theme"); } catch (e) {}
+            if (!saved) {
+                saved = (window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: dark)").matches)
+                    ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-theme", saved);
+        })();
+    </script>
+</head>
+<body>
+<div class="app-layout">
+{% set active_page = "alerts" %}
+{% include "partials/sidebar.html" %}
+<div class="scrim" id="scrim"></div>
+<main class="main-content" id="main-content">
+    <header class="mobile-bar">
+        <button type="button" class="menu-button" id="menuButton" aria-label="Open navigation">&#9776;</button>
+        <span class="mobile-brand">Uptime Monitor</span>
+    </header>
+    <div class="page-header">
+        <div><h1>Alerts</h1><p>Channels, thresholds, maintenance windows and the alert history.</p></div>
+        <button type="button" class="users-btn" id="testAlertBtn" onclick="sendTestAlert()">Send test alert</button>
+    </div>
+
+    <div id="testAlertResult" hidden></div>
+
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header">
+            <div>
+                <h2>Channels</h2>
+                <p>Configured in <code>config.py</code> under <code>ALERTS</code>. A
+                   test alert walks the same path as a real one.</p>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Channel</th><th>State</th><th>Target</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Email (SMTP)</td>
+                        <td>
+                            <span class="users-role users-role-{{ 'admin' if alerts_cfg.email.enabled else 'viewer' }}">
+                                {{ 'enabled' if alerts_cfg.email.enabled else 'disabled' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if alerts_cfg.email.enabled %}
+                                {{ alerts_cfg.email.to|join(", ") or "no recipients" }}
+                                <span class="unit">via {{ alerts_cfg.email.host }}:{{ alerts_cfg.email.port }}</span>
+                            {% else %}
+                                <span class="unit">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Webhook (Teams/Slack)</td>
+                        <td>
+                            <span class="users-role users-role-{{ 'admin' if alerts_cfg.webhook.enabled else 'viewer' }}">
+                                {{ 'enabled' if alerts_cfg.webhook.enabled else 'disabled' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if alerts_cfg.webhook.enabled and alerts_cfg.webhook.url %}
+                                <span class="unit">{{ alerts_cfg.webhook.url }}</span>
+                            {% else %}
+                                <span class="unit">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header">
+            <div>
+                <h2>Thresholds</h2>
+                <p>When the checker decides a condition is worth waking someone up.</p>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Alerting</td>
+                        <td>
+                            <span class="users-role users-role-{{ 'admin' if alerts_cfg.enabled else 'viewer' }}">
+                                {{ 'enabled' if alerts_cfg.enabled else 'disabled' }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Down alert</td>
+                        <td>{{ alerts_cfg.down_failures }} consecutive failed checks (flap guard)</td>
+                    </tr>
+                    <tr>
+                        <td>Latency alert</td>
+                        <td>
+                            {% if alerts_cfg.latency_ms %}
+                                above {{ alerts_cfg.latency_ms }} ms for
+                                {{ alerts_cfg.latency_failures }} consecutive checks
+                            {% else %}
+                                <span class="unit">off</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Cooldown</td>
+                        <td>same alert at most every {{ (alerts_cfg.cooldown_seconds / 60)|int }} minutes</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header">
+            <div>
+                <h2>Maintenance windows</h2>
+                <p>Alerts are silenced inside these windows (and <code>/status</code>
+                   shows a banner). Times are local.</p>
+            </div>
+        </div>
+        {% if maintenance_windows %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Company</th><th>Days</th><th>Window</th></tr>
+                </thead>
+                <tbody>
+                    {% for w in maintenance_windows %}
+                    <tr>
+                        <td>{{ w.company or "All companies" }}</td>
+                        <td>
+                            {% if w.days == "all" %}
+                                daily
+                            {% else %}
+                                {{ w.days|join(", ") }}
+                            {% endif %}
+                        </td>
+                        <td>{{ w.start }} - {{ w.end }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="table-message">No maintenance windows configured - add one to
+           <code>MAINTENANCE</code> in <code>config.py</code>.</p>
+        {% endif %}
+    </div>
+
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header">
+            <div>
+                <h2>Recent alerts</h2>
+                <p>Last 20 notifications - every dispatch is recorded here, including
+                   test alerts.</p>
+            </div>
+        </div>
+        {% if recent_alerts %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sent (UTC)</th>
+                        <th>Company</th>
+                        <th>Check</th>
+                        <th>Kind</th>
+                        <th>Message</th>
+                        <th>Channel</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in recent_alerts %}
+                    <tr>
+                        <td>{{ a.sent_at }}</td>
+                        <td>{{ a.company }}</td>
+                        <td>{{ a.check_type }}</td>
+                        <td>{{ a.kind }}</td>
+                        <td>{{ a.message[:120] }}</td>
+                        <td>{{ a.channel }}</td>
+                        <td>
+                            <span class="users-role users-role-{{ 'admin' if a.status == 'sent' else 'viewer' }}">
+                                {{ a.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="table-message">No alerts have been sent yet.</p>
+        {% endif %}
+    </div>
+</main>
+</div>
+<script>
+function toggleTheme(){
+    const cur=document.documentElement.getAttribute("data-theme")||"light";
+    const next=cur==="dark"?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem("theme",next);}catch(e){}
+    const lbl=document.getElementById("themeToggleLabel");
+    if(lbl){lbl.textContent=next==="dark"?"Light mode":"Dark mode";}
+    const btn=document.getElementById("themeToggle");
+    if(btn){btn.setAttribute("aria-pressed",next==="dark"?"true":"false");}
+}
+/* Sync toggle label with restored theme (button exists by now). */
+(function(){
+    const saved=document.documentElement.getAttribute("data-theme");
+    const lbl=document.getElementById("themeToggleLabel");
+    const btn=document.getElementById("themeToggle");
+    if(lbl){lbl.textContent=saved==="dark"?"Light mode":"Dark mode";}
+    if(btn){btn.setAttribute("aria-pressed",saved==="dark"?"true":"false");}
+})();
+document.getElementById("menuButton").addEventListener("click",function(){document.body.classList.toggle("nav-open");});
+document.getElementById("scrim").addEventListener("click",function(){document.body.classList.remove("nav-open");});
+
+function sendTestAlert(){
+    const btn=document.getElementById("testAlertBtn");
+    const box=document.getElementById("testAlertResult");
+    const onoff=function(v){return v?"on":"off";};
+    btn.disabled=true;
+    box.hidden=false;
+    box.className="users-banner";
+    box.removeAttribute("role");
+    box.textContent="Sending test alert...";
+    fetch("/api/alerts/test",{method:"POST",headers:{"Accept":"application/json"}})
+        .then(function(r){return r.json().then(function(d){return {http:r.ok,d:d};});})
+        .then(function(res){
+            if(res.http&&res.d.ok){
+                box.className="users-banner users-banner-ok";
+                box.setAttribute("role","status");
+                const ch=res.d.channels||{};
+                box.textContent=res.d.delivered
+                    ? "Test alert delivered through the configured channels (email: "+onoff(ch.email)+", webhook: "+onoff(ch.webhook)+"). It is recorded in the alert history below (refresh to see it)."
+                    : "Test alert processed, but no channel is enabled - nothing to deliver. It is still recorded in the alert history below (refresh to see it).";
+            }else{
+                box.className="users-banner users-banner-err";
+                box.setAttribute("role","alert");
+                box.textContent="Test alert failed: "+((res.d&&res.d.error)||"unknown error");
+            }
+        })
+        .catch(function(e){
+            box.className="users-banner users-banner-err";
+            box.setAttribute("role","alert");
+            box.textContent="Test alert failed: "+e;
+        })
+        .finally(function(){btn.disabled=false;});
+}
+</script>
+</body>
+</html>
