@@ -179,6 +179,24 @@ input {
     outline-offset: 2px;
 }
 
+/* Skip link: off-screen until keyboard-focused (a11y bypass block). */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 300;
+    padding: 10px 18px;
+    background: var(--brand-fill);
+    color: #fff;
+    border-radius: 0 0 10px 0;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.skip-link:focus {
+    left: 0;
+}
+
 select {
     appearance: none;
     -webkit-appearance: none;

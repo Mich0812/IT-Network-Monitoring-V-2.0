@@ -143,18 +143,18 @@ app.config["SESSION_COOKIE_SECURE"] = (
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 
 
-# Content-Security-Policy: 'self' plus the two CDNs still used for
-# Chart.js and Google Fonts (Phase 11 self-hosts them and this list
-# shrinks again). 'unsafe-inline' is required by the inline <script>
-# blocks and style attributes in the templates. frame-ancestors
-# 'none' is the modern clickjacking defence; X-Frame-Options DENY
-# below stays for older browsers. Deliberately NO
-# upgrade-insecure-requests - the LAN install runs plain HTTP.
+# Content-Security-Policy: everything is self-hosted since Phase 11
+# (Chart.js in static/vendor, fonts in static/fonts) - no CDN origins.
+# 'unsafe-inline' is required by the inline <script> blocks and style
+# attributes in the templates. frame-ancestors 'none' is the modern
+# clickjacking defence; X-Frame-Options DENY below stays for older
+# browsers. Deliberately NO upgrade-insecure-requests - the LAN
+# install runs plain HTTP.
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-    "font-src 'self' data: https://fonts.gstatic.com; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "font-src 'self' data:; "
     "img-src 'self' data:; "
     "connect-src 'self'; "
     "object-src 'none'; "

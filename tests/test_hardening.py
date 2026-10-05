@@ -46,13 +46,15 @@ def test_csp_header_is_present_and_restrictive(client):
     assert "upgrade-insecure-requests" not in csp
 
 
-def test_csp_still_permits_the_asset_sources_the_app_uses(client):
-    """Until Phase 11 self-hosts Chart.js + fonts these origins must
-    stay allowed or the dashboard loses charts and branding."""
+def test_csp_declares_no_third_party_origins(client):
+    """Phase 11 self-hosts Chart.js and both fonts - no CDN origin
+    may reappear in the policy (or the app breaks when the WAN is
+    down, and supply-chain risk comes back)."""
     csp = client.get("/login").headers.get("Content-Security-Policy", "")
-    assert "https://cdn.jsdelivr.net" in csp       # Chart.js
-    assert "https://fonts.googleapis.com" in csp   # font CSS
-    assert "https://fonts.gstatic.com" in csp      # font files
+    assert "cdn.jsdelivr.net" not in csp
+    assert "fonts.googleapis.com" not in csp
+    assert "fonts.gstatic.com" not in csp
+    assert "https://" not in csp and "http://" not in csp
 
 
 def test_pre_existing_security_headers_still_present(client):

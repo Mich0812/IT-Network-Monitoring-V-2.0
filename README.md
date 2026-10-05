@@ -722,3 +722,69 @@ computers on the LAN, and harden it now that it's a real deployment.
   findings (heading-order, meta descriptions, label mismatch) are
   Phase 11 items.
 
+## V2.3 Phase 11 - self-hosted assets, partials & accessibility
+
+Everything now ships from the repo - no CDN, no Google Fonts, no
+Chart.js CDN - and the shared template code collapsed into partials.
+
+### A - Self-hosted assets
+
+- Chart.js 4.5.1 vendored at `static/vendor/chart.umd.min.js`
+  (the dashboard tag points here with `?v=4.5.1`).
+- The five Google fonts mirrored to `static/fonts/*.woff2` and
+  wrapped by `static/fonts.css` (zero external `url()`s); every
+  template links `fonts.css?v=1` instead of `fonts.googleapis.com`.
+- CSP no longer allows any third-party origin:
+  `test_csp_declares_no_third_party_origins` fails the build if an
+  `http(s)://` origin sneaks back in.
+
+### B - Template partials (edit one file, not nine)
+
+- `templates/partials/head_assets.html` - favicon + fonts.css +
+  style.css links. The single `?v=` cache version lives here, so a
+  token fix is now one edit + one bump (currently `?v=9`). All nine
+  templates include it.
+- `templates/partials/sidebar.html` - the canonical sidebar:
+  `{% set active_page = ... %}` drives the `active` class, the
+  `{% if role == "admin" %}` gate wraps Users/Agents, plus user
+  chip, theme toggle, logout and the skip link. overview, incidents,
+  reports, users and agents include it; the dashboard keeps its
+  bespoke anchor-nav sidebar (Latency/Speedtest section links +
+  company switcher) by design.
+- `static/dashboard.js` - the dashboard's ~1900-line inline script
+  extracted verbatim (it contains no Jinja); the template loads it
+  with `?v=1`. The small head theme-init scripts stay inline (login
+  and /status bundle `toggleTheme` there).
+
+### C - Accessibility & SEO
+
+- `<meta name="description">` on all nine templates.
+- Skip link (`Skip to main content` -> `#main-content`) in the
+  sidebar partial and the dashboard; off-screen until focused.
+  `id="main-content"` added to all six `<main class="main-content">`.
+- Chart-type toggles expose `aria-pressed` (initial state in HTML,
+  flipped by `setLatencyChartType`/`setSpeedtestChartType`).
+- `/status` and `/login` theme toggle: dropped
+  `aria-label="Toggle dark mode"` - it clashed with the visible
+  "Light mode"/"Dark mode" text (axe `label-content-name-mismatch`);
+  the visible label is the accessible name and `aria-pressed`
+  conveys state, matching the other six pages.
+- Status-card `<h3>`s promoted to `<h2>` (fixes the h1 -> h3
+  heading-order gap).
+- Chart canvases keep `role="img"` + aria-label summaries.
+
+### Tests & verification
+
+- New `tests/test_partials.py` (7 tests): include wiring,
+  `active_page` ordering, admin-gate placement, dashboard.js
+  externalization, skip-link/main landmark, pressed states, meta
+  descriptions.
+- Existing source-scan tests updated for the layout: the fonts test
+  resolves `{% include %}`, the cache-version test walks
+  `templates/` (partial included), the grouped-incidents API test
+  reads `static/dashboard.js`.
+- `python -m pytest -q` -> **192 passed**.
+- Lighthouse (live) on dashboard, `/status` and `/login`:
+  accessibility **100**, best-practices **100**, SEO **100**, zero
+  failures, zero console messages on all three.
+

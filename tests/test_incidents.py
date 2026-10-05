@@ -5,6 +5,7 @@ tested without the database; the rest go through the HTTP API with
 seeded outage rows - always for a single company, cleaned up after.
 """
 
+import os
 import time
 
 import pytest
@@ -12,6 +13,8 @@ import pytest
 from tests.conftest import forge
 
 COMPANY = "Company A"
+
+PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # One frozen timestamp base for the whole module: every ts() below
 # derives from it, so exact duration math in assertions can't drift
@@ -437,5 +440,9 @@ def test_sidebars_link_to_incidents(admin_client):
 
 def test_dashboard_uses_grouped_incidents_api(admin_client):
     html = admin_client.get("/dashboard").get_data(as_text=True)
-    assert "/api/incidents?hours=24" in html
-    assert "/api/outages" not in html
+    assert "/static/dashboard.js" in html, "script must load from static/"
+    js = open(
+        os.path.join(PROJECT, "static", "dashboard.js"), encoding="utf-8"
+    ).read()
+    assert "/api/incidents?hours=24" in js
+    assert "/api/outages" not in js

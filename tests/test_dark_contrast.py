@@ -24,6 +24,7 @@ PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSS_PATH = os.path.join(PROJECT, "static", "style.css")
 TEMPLATES_DIR = os.path.join(PROJECT, "templates")
 DASHBOARD_PATH = os.path.join(TEMPLATES_DIR, "dashboard.html")
+DASHBOARD_JS_PATH = os.path.join(PROJECT, "static", "dashboard.js")
 
 
 # ------------------------------------------------------------------
@@ -183,7 +184,7 @@ def test_dark_theme_has_brand_fill_tokens():
 
 def test_chart_tooltip_colours_are_theme_aware():
     """The pure-white-tooltip-in-dark-mode bug must not return."""
-    src = open(DASHBOARD_PATH, encoding="utf-8").read()
+    src = open(DASHBOARD_JS_PATH, encoding="utf-8").read()
 
     # helper exists and the tooltip consumes it
     assert "function tooltipColors()" in src
@@ -221,13 +222,14 @@ def test_all_templates_share_one_css_cache_version():
     """style.css must ship with one ?v= everywhere - otherwise a
     token fix reaches only some pages and dark mode stays broken."""
     versions = set()
-    for name in sorted(os.listdir(TEMPLATES_DIR)):
-        if not name.endswith(".html"):
-            continue
-        src = open(os.path.join(TEMPLATES_DIR, name), encoding="utf-8").read()
-        found = re.findall(r"style\.css'\)\s*\}\}\?v=(\d+)", src)
-        if found:
-            versions.update(found)
+    for root, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in sorted(files):
+            if not name.endswith(".html"):
+                continue
+            src = open(os.path.join(root, name), encoding="utf-8").read()
+            found = re.findall(r"style\.css'\)\s*\}\}\?v=(\d+)", src)
+            if found:
+                versions.update(found)
     assert len(versions) == 1, (
         "templates disagree on style.css cache version: %s"
         % sorted(versions)

@@ -6,14 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Log in - Uptime Monitor</title>
+    <meta name="description" content="Sign in to the Uptime Monitor dashboard.">
 
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%232d44d3'/%3E%3Cpath d='M7 19h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap">
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+        {% include "partials/head_assets.html" %}
 
     <script>
         /* Restore theme before first paint - avoids a white flash. */
@@ -112,7 +107,6 @@
             id="themeToggle"
             onclick="toggleTheme()"
             aria-pressed="false"
-            aria-label="Toggle dark mode"
         >
             <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>

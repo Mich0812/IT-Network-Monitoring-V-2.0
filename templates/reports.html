@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports - Uptime Monitor</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%232d44d3'/%3E%3Cpath d='M7 19h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+    <meta name="description" content="Availability reports - SLA percentages, uptime heatmap and exportable data.">
+        {% include "partials/head_assets.html" %}
 
     <script>
         /* Restore theme before first paint - avoids a flash of the wrong theme. */
@@ -26,34 +23,10 @@
 </head>
 <body>
 <div class="app-layout">
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-        <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><rect class="m-bg" width="36" height="36" rx="10"/><path class="m-line" d="M7 19h5l3-8 5 15 3-7h6"/></svg>
-        <div><h2>Uptime Monitor</h2><span>Network monitoring</span></div>
-    </div>
-    <nav class="sidebar-nav" aria-label="Sections">
-        <a href="/overview" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></span><span>Overview</span></a>
-        <a href="/dashboard" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span><span>Dashboard</span></a>
-        <a href="/incidents" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></svg></span><span>Incidents</span></a>
-        <a href="/reports" class="nav-item active"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span><span>Reports</span></a>
-        <a href="/status" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span><span>Status</span></a>
-        {% if role == "admin" %}
-        <a href="/users" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Users</span></a>
-        <a href="/agents" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8M8 13h.01M12 13h.01M16 13h.01M8 17h8"/></svg></span><span>Agents</span></a>
-        {% endif %}
-    </nav>
-    <div class="sidebar-bottom">
-        <div class="current-user"><div class="user-avatar">{{ username[0]|upper }}</div><div class="user-info"><span>Logged in as</span><strong>{{ username }}</strong>{% if role %}<span class="user-role">{{ role }}</span>{% endif %}</div></div>
-        <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-pressed="false">
-            <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41-1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-            <span id="themeToggleLabel">Dark mode</span>
-        </button>
-        <a href="{{ url_for('logout') }}" class="sidebar-logout">Log out</a>
-    </div>
-</aside>
+{% set active_page = "reports" %}
+{% include "partials/sidebar.html" %}
 <div class="scrim" id="scrim"></div>
-<main class="main-content">
+<main class="main-content" id="main-content">
     <header class="mobile-bar">
         <button type="button" class="menu-button" id="menuButton" aria-label="Open navigation">&#9776;</button>
         <span class="mobile-brand">Uptime Monitor</span>
