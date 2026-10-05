@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Log in - Uptime Monitor</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%232d44d3'/%3E%3Cpath d='M7 19h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+
+    <script>
+        /* Restore theme before first paint - avoids a white flash. */
+        (function() {
+            var saved = null;
+            try { saved = localStorage.getItem("theme"); } catch (e) {}
+            if (!saved) {
+                saved = (window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: dark)").matches)
+                    ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-theme", saved);
+        })();
+
+        function toggleTheme() {
+            var current = document.documentElement.getAttribute("data-theme") || "light";
+            var next = current === "dark" ? "light" : "dark";
+            document.documentElement.setAttribute("data-theme", next);
+            try { localStorage.setItem("theme", next); } catch (e) {}
+            var lbl = document.getElementById("themeToggleLabel");
+            if (lbl) { lbl.textContent = next === "dark" ? "Light mode" : "Dark mode"; }
+            var btn = document.getElementById("themeToggle");
+            if (btn) { btn.setAttribute("aria-pressed", next === "dark" ? "true" : "false"); }
+        }
+
+        /* Sync label with restored theme once the button exists
+           (this script runs in <head>, before the body is parsed). */
+        function syncThemeToggle() {
+            var saved = document.documentElement.getAttribute("data-theme");
+            var lbl = document.getElementById("themeToggleLabel");
+            var btn = document.getElementById("themeToggle");
+            if (lbl) { lbl.textContent = saved === "dark" ? "Light mode" : "Dark mode"; }
+            if (btn) { btn.setAttribute("aria-pressed", saved === "dark" ? "true" : "false"); }
+        }
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", syncThemeToggle);
+        } else {
+            syncThemeToggle();
+        }
+    </script>
+</head>
+
+<body class="login-page">
+
+<div class="login-layout">
+
+    <!-- Left: what the tool does -->
+    <aside class="login-aside">
+
+        <div class="brand-lockup">
+            <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+                <rect class="m-bg" width="36" height="36" rx="10"/>
+                <path class="m-line" d="M7 19h5l3-8 5 15 3-7h6"/>
+            </svg>
+            Uptime Monitor
+        </div>
+
+        <div class="login-pitch">
+            <h2>Find out which link in the chain failed.</h2>
+            <p>
+                Uptime Monitor checks your gateway, internet connection,
+                DNS and HTTPS for every site you manage.
+            </p>
+        </div>
+
+        <svg class="signal" viewBox="20 0 500 80" role="img"
+             aria-label="A signal travelling from gateway to internet to DNS to HTTPS">
+
+            <line class="signal-track" x1="50" y1="24" x2="470" y2="24"/>
+
+            <circle class="signal-node" cx="50"  cy="24" r="8"/>
+            <circle class="signal-node" cx="190" cy="24" r="8"/>
+            <circle class="signal-node" cx="330" cy="24" r="8"/>
+            <circle class="signal-node" cx="470" cy="24" r="8"/>
+
+            <g class="signal-pulse">
+                <circle class="signal-halo" cx="50" cy="24" r="13"/>
+                <circle class="signal-dot"  cx="50" cy="24" r="5"/>
+            </g>
+
+            <text class="signal-label" x="50"  y="64">Gateway</text>
+            <text class="signal-label" x="190" y="64">Internet</text>
+            <text class="signal-label" x="330" y="64">DNS</text>
+            <text class="signal-label" x="470" y="64">HTTPS</text>
+
+        </svg>
+
+    </aside>
+
+    <!-- Right: the form -->
+    <main class="login-main">
+
+        <button
+            type="button"
+            class="theme-toggle login-theme-toggle"
+            id="themeToggle"
+            onclick="toggleTheme()"
+            aria-pressed="false"
+            aria-label="Toggle dark mode"
+        >
+            <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+            <span id="themeToggleLabel">Dark mode</span>
+        </button>
+
+        <div class="login-container">
+
+            <div class="login-card">
+
+                <div class="login-logo">
+                    <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+                        <rect class="m-bg" width="36" height="36" rx="10"/>
+                        <path class="m-line" d="M7 19h5l3-8 5 15 3-7h6"/>
+                    </svg>
+                </div>
+
+                <h1>Log in</h1>
+
+                <p class="login-subtitle">
+                    Enter your credentials to open the dashboard.
+                </p>
+
+                {% if error %}
+                <div class="error-message" role="alert">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('login') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            placeholder="Enter username"
+                            autocomplete="username"
+                            required
+                            autofocus
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter password"
+                            autocomplete="current-password"
+                            required
+                        >
+                    </div>
+
+                    <button type="submit" class="login-button">
+                        Log in
+                    </button>
+
+                </form>
+
+                <a class="login-status-link" href="{{ url_for('public_status') }}">
+                    View live status &rarr;
+                </a>
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+</body>
+</html>

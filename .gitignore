@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+uptime.db
+uptime.db-wal
+uptime.db-shm
+secret_key.txt
+monitor.log*
+.env
+venv/
+.venv/
+backups/
+.pytest_cache/
+# Vendor binary - drop your own copy in (see README)
+speedtest.exe
+Thumbs.db

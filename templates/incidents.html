@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incidents - Uptime Monitor</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%232d44d3'/%3E%3Cpath d='M7 19h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+
+    <script>
+        /* Restore theme before first paint - avoids a flash of the wrong theme. */
+        (function() {
+            var saved = null;
+            try { saved = localStorage.getItem("theme"); } catch (e) {}
+            if (!saved) {
+                saved = (window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: dark)").matches)
+                    ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-theme", saved);
+        })();
+    </script>
+</head>
+<body>
+<div class="app-layout">
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><rect class="m-bg" width="36" height="36" rx="10"/><path class="m-line" d="M7 19h5l3-8 5 15 3-7h6"/></svg>
+        <div><h2>Uptime Monitor</h2><span>Network monitoring</span></div>
+    </div>
+    <nav class="sidebar-nav" aria-label="Sections">
+        <a href="/overview" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></span><span>Overview</span></a>
+        <a href="/dashboard" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span><span>Dashboard</span></a>
+        <a href="/incidents" class="nav-item active"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></svg></span><span>Incidents</span></a>
+        <a href="/reports" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span><span>Reports</span></a>
+        <a href="/status" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span><span>Status</span></a>
+        {% if role == "admin" %}
+        <a href="/users" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Users</span></a>
+        <a href="/agents" class="nav-item"><span class="nav-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8M8 13h.01M12 13h.01M16 13h.01M8 17h8"/></svg></span><span>Agents</span></a>
+        {% endif %}
+    </nav>
+    <div class="sidebar-bottom">
+        <div class="current-user"><div class="user-avatar">{{ username[0]|upper }}</div><div class="user-info"><span>Logged in as</span><strong>{{ username }}</strong>{% if role %}<span class="user-role">{{ role }}</span>{% endif %}</div></div>
+        <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-pressed="false">
+            <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l-1.41 1.41M2 12h2M20 12h2M4.93 19.07l-1.41 1.41M17.66 6.34l1.41-1.41"/></svg>
+            <span id="themeToggleLabel">Dark mode</span>
+        </button>
+        <a href="{{ url_for('logout') }}" class="sidebar-logout">Log out</a>
+    </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<main class="main-content">
+    <header class="mobile-bar">
+        <button type="button" class="menu-button" id="menuButton" aria-label="Open navigation">&#9776;</button>
+        <span class="mobile-brand">Uptime Monitor</span>
+    </header>
+    <div class="page-header">
+        <div><h1>Incidents</h1><p>Grouped outages with a root-cause hint, plus the alert history behind them.</p></div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="dashboard-card">
+        <div class="reports-controls">
+            <div class="reports-control">
+                <label for="incCompany">Company</label>
+                <select id="incCompany">
+                    <option value="all">All companies</option>
+                    {% for c in companies %}
+                    <option value="{{ c }}"{% if c == default_company %} selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="reports-control">
+                <label id="incPeriodLabel">Period</label>
+                <div class="reports-period" role="group" aria-labelledby="incPeriodLabel">
+                    <button type="button" class="reports-period-btn" data-hours="1">1 hour</button>
+                    <button type="button" class="reports-period-btn" data-hours="12">12 hours</button>
+                    <button type="button" class="reports-period-btn active" data-hours="24">24 hours</button>
+                    <button type="button" class="reports-period-btn" data-hours="720">30 days</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INCIDENTS -->
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header">
+            <div>
+                <h2>Incidents</h2>
+                <p id="incSub">Loading&hellip;</p>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Company</th>
+                        <th>Checks affected</th>
+                        <th>Started (UTC)</th>
+                        <th>Ended (UTC)</th>
+                        <th class="num">Duration</th>
+                        <th>Likely cause</th>
+                    </tr>
+                </thead>
+                <tbody id="incBody">
+                    <tr><td colspan="7" class="table-message">Loading&hellip;</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="reports-note">Outages of the same company that overlap or start within 2 minutes of each other are grouped into one incident. "Likely cause" is the leftmost failing step of the chain Gateway &rarr; Internet &rarr; DNS &rarr; HTTPS &mdash; a dead gateway also breaks everything behind it.</p>
+    </div>
+
+    <!-- ALERT HISTORY -->
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header">
+            <div>
+                <h2>Alert history</h2>
+                <p id="histSub">Loading&hellip;</p>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sent (UTC)</th>
+                        <th>Company</th>
+                        <th>Check</th>
+                        <th>Kind</th>
+                        <th>Channel</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody id="histBody">
+                    <tr><td colspan="7" class="table-message">Loading&hellip;</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="reports-note">Every alert the engine dispatched (or suppressed) in the period, newest first. Delivery status is per channel; disabled channels are never called.</p>
+    </div>
+</main>
+</div>
+<script>
+function toggleTheme(){
+    const cur=document.documentElement.getAttribute("data-theme")||"light";
+    const next=cur==="dark"?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem("theme",next);}catch(e){}
+    const lbl=document.getElementById("themeToggleLabel");
+    if(lbl){lbl.textContent=next==="dark"?"Light mode":"Dark mode";}
+    const btn=document.getElementById("themeToggle");
+    if(btn){btn.setAttribute("aria-pressed",next==="dark"?"true":"false");}
+}
+/* Sync toggle label with restored theme (button exists by now). */
+(function(){
+    const saved=document.documentElement.getAttribute("data-theme");
+    const lbl=document.getElementById("themeToggleLabel");
+    const btn=document.getElementById("themeToggle");
+    if(lbl){lbl.textContent=saved==="dark"?"Light mode":"Dark mode";}
+    if(btn){btn.setAttribute("aria-pressed",saved==="dark"?"true":"false");}
+})();
+document.getElementById("menuButton").addEventListener("click",function(){document.body.classList.toggle("nav-open");});
+document.getElementById("scrim").addEventListener("click",function(){document.body.classList.remove("nav-open");});
+
+/* ============================================================
+   INCIDENTS PAGE LOGIC
+   ============================================================ */
+
+var INC = {
+    company: {{ default_company|tojson }},
+    hours: 24
+};
+
+function $(id){ return document.getElementById(id); }
+
+function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+}
+
+function fmtDur(seconds){
+    if (seconds === null || seconds === undefined) return "\u2013";
+    if (seconds < 60) return Math.round(seconds) + " s";
+    if (seconds < 3600) return (Math.round(seconds / 6) / 10) + " min";
+    if (seconds < 86400) return (Math.round(seconds / 360) / 10) + " h";
+    return (Math.round(seconds / 8640) / 10) + " d";
+}
+
+function periodLabel(){
+    return "Last " + INC.hours + " hour" + (INC.hours === 1 ? "" : "s")
+         + " \u00b7 " + (INC.company === "all" ? "All companies" : INC.company);
+}
+
+function query(){
+    /* No leading "?" - callers add it so extra params (e.g.
+       limit=100) compose without producing a double separator. */
+    return "company=" + encodeURIComponent(INC.company)
+         + "&hours=" + INC.hours;
+}
+
+async function loadIncidents(){
+    const body = $("incBody");
+    body.innerHTML = '<tr><td colspan="7" class="table-message">Loading\u2026</td></tr>';
+    try {
+        const res = await fetch("/api/incidents?" + query());
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        $("incSub").textContent = periodLabel() + " \u00b7 gap \u2264 "
+            + Math.round(data.gap_seconds / 60) + " min groups into one incident";
+        if (!data.incidents.length){
+            body.innerHTML = '<tr><td colspan="7" class="table-message">'
+                + 'No incidents in this period - nice and quiet.'
+                + '</td></tr>';
+            return;
+        }
+        body.innerHTML = data.incidents.map(function(i){
+            const status = i.open
+                ? '<span class="sla-pill sla-bad">Ongoing</span>'
+                : '<span class="sla-pill sla-good">Resolved</span>';
+            return "<tr>"
+                + "<td>" + status + "</td>"
+                + "<td>" + esc(i.company) + "</td>"
+                + "<td>" + esc(i.checks.join(", "))
+                + (i.outage_count > 1 ? " <span class='sla-pill sla-none'>"
+                    + i.outage_count + " outages</span>" : "") + "</td>"
+                + "<td>" + esc(i.started_at) + "</td>"
+                + "<td>" + esc(i.ended_at || "ongoing") + "</td>"
+                + '<td class="num">' + fmtDur(i.duration) + "</td>"
+                + "<td>" + esc(i.root_cause) + "</td>"
+                + "</tr>";
+        }).join("");
+    } catch (e) {
+        body.innerHTML = '<tr><td colspan="7" class="table-message">Could not load incidents ('
+            + esc(e.message) + ").</td></tr>";
+    }
+}
+
+async function loadHistory(){
+    const body = $("histBody");
+    body.innerHTML = '<tr><td colspan="7" class="table-message">Loading\u2026</td></tr>';
+    try {
+        const res = await fetch("/api/notifications?limit=100&" + query());
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        $("histSub").textContent = periodLabel() + " \u00b7 " + data.count + " alert(s), newest first";
+        if (!data.notifications.length){
+            body.innerHTML = '<tr><td colspan="7" class="table-message">'
+                + 'No alerts in this period.'
+                + '</td></tr>';
+            return;
+        }
+        body.innerHTML = data.notifications.map(function(n){
+            return "<tr>"
+                + "<td>" + esc(n.sent_at) + "</td>"
+                + "<td>" + esc(n.company) + "</td>"
+                + "<td>" + esc(n.check_type) + "</td>"
+                + "<td>" + esc(n.kind) + "</td>"
+                + "<td>" + esc(n.channel) + "</td>"
+                + "<td>" + esc(n.status) + "</td>"
+                + "<td>" + esc(n.message) + "</td>"
+                + "</tr>";
+        }).join("");
+    } catch (e) {
+        body.innerHTML = '<tr><td colspan="7" class="table-message">Could not load alert history ('
+            + esc(e.message) + ").</td></tr>";
+    }
+}
+
+function refresh(){
+    loadIncidents();
+    loadHistory();
+}
+
+$("incCompany").addEventListener("change", function(e){
+    INC.company = e.target.value;
+    refresh();
+});
+
+document.querySelectorAll(".reports-period-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+        document.querySelectorAll(".reports-period-btn").forEach(function(b){
+            b.classList.remove("active");
+        });
+        btn.classList.add("active");
+        INC.hours = parseInt(btn.getAttribute("data-hours"), 10);
+        refresh();
+    });
+});
+
+refresh();
+/* Keep the ongoing-incident row honest while the tab stays open. */
+setInterval(loadIncidents, 30000);
+</script>
+</body>
+</html>

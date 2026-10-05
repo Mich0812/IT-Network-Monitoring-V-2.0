@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% if company %}{{ company }} - {% endif %}Status - Uptime Monitor</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%232d44d3'/%3E%3Cpath d='M7 19h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+
+    <script>
+        /* Restore theme before first paint - avoids a white flash. */
+        (function() {
+            var saved = null;
+            try { saved = localStorage.getItem("theme"); } catch (e) {}
+            if (!saved) {
+                saved = (window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: dark)").matches)
+                    ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-theme", saved);
+        })();
+
+        function toggleTheme() {
+            var current = document.documentElement.getAttribute("data-theme") || "light";
+            var next = current === "dark" ? "light" : "dark";
+            document.documentElement.setAttribute("data-theme", next);
+            try { localStorage.setItem("theme", next); } catch (e) {}
+            var lbl = document.getElementById("themeToggleLabel");
+            if (lbl) { lbl.textContent = next === "dark" ? "Light mode" : "Dark mode"; }
+            var btn = document.getElementById("themeToggle");
+            if (btn) { btn.setAttribute("aria-pressed", next === "dark" ? "true" : "false"); }
+        }
+
+        function syncThemeToggle() {
+            var saved = document.documentElement.getAttribute("data-theme");
+            var lbl = document.getElementById("themeToggleLabel");
+            var btn = document.getElementById("themeToggle");
+            if (lbl) { lbl.textContent = saved === "dark" ? "Light mode" : "Dark mode"; }
+            if (btn) { btn.setAttribute("aria-pressed", saved === "dark" ? "true" : "false"); }
+        }
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", syncThemeToggle);
+        } else {
+            syncThemeToggle();
+        }
+    </script>
+</head>
+
+<body class="public-page">
+
+<header class="pub-header">
+
+    <a class="pub-brand" href="/status">
+        <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+            <rect class="m-bg" width="36" height="36" rx="10"/>
+            <path class="m-line" d="M7 19h5l3-8 5 15 3-7h6"/>
+        </svg>
+        <span>Uptime Monitor</span>
+    </a>
+
+    <div class="pub-header-right">
+        <span class="pub-chip">Public status</span>
+        <button
+            type="button"
+            class="theme-toggle"
+            id="themeToggle"
+            onclick="toggleTheme()"
+            aria-pressed="false"
+            aria-label="Toggle dark mode"
+        >
+            <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+            <span id="themeToggleLabel">Dark mode</span>
+        </button>
+    </div>
+
+</header>
+
+<main class="pub-main">
+
+    {% if error %}
+    <!-- ================= NOT FOUND ================= -->
+    <div class="pub-hero">
+        <h1>{{ error }}</h1>
+        <p>This company is not published on the public status page.</p>
+        <a class="pub-back" href="/status">&larr; All systems</a>
+    </div>
+
+    {% elif company %}
+    <!-- ================= COMPANY DETAIL ================= -->
+    <div class="pub-topline">
+        <a class="pub-back" href="/status">&larr; All systems</a>
+        <div class="pub-switch">
+            <label for="pubCompany">Company</label>
+            <select id="pubCompany"
+                    onchange="if (this.value) window.location.href='/status?company=' + encodeURIComponent(this.value);">
+                {% for c in companies %}
+                <option value="{{ c }}"{% if c == company %} selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="pub-hero">
+        <div class="pub-hero-title">
+            <h1>{{ company }}</h1>
+            <span class="sla-pill {{ state_class }}">{{ state_label }}</span>
+        </div>
+        <p class="pub-meta">
+            Last checked {{ last_label }}{% if last_label != 'never' %} ago{% endif %}
+            &middot; Updated {{ now_label }} UTC
+        </p>
+    </div>
+
+    {% if stale_banner %}
+    <div class="pub-banner pub-banner-warn">{{ stale_banner }}</div>
+    {% endif %}
+
+    {% if ongoing %}
+    <div class="pub-banner pub-banner-bad">
+        <strong>Ongoing incident</strong> since {{ ongoing.started_at }} UTC
+        &mdash; likely cause: {{ ongoing.root_cause }}
+        (checks affected: {{ ongoing.checks|join(", ") }}).
+    </div>
+    {% endif %}
+
+    <section class="pub-section">
+        <h2>Current checks</h2>
+        <div class="pub-table-wrap">
+            <table class="pub-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Status</th>
+                        <th>Latency</th>
+                        <th>Last checked (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in checks %}
+                    <tr>
+                        <td>{{ c.name }}</td>
+                        <td><span class="sla-pill {{ c.view_class }}">{{ c.view_label }}</span></td>
+                        <td>
+                            {% if c.latency is not none %}
+                                {{ c.latency|round(1) }} ms
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.timestamp %}
+                                {{ c.timestamp }} ({{ c.age_label }})
+                            {% else %}
+                                No data yet
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="pub-section">
+        <h2>Uptime</h2>
+        <div class="pub-table-wrap">
+            <table class="pub-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>24 hours</th>
+                        <th>7 days</th>
+                        <th>30 days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in checks %}
+                    <tr>
+                        <td>{{ c.name }}</td>
+                        <td>{% if c.uptime[1] is not none %}{{ c.uptime[1]|round(2) }}%{% else %}&ndash;{% endif %}</td>
+                        <td>{% if c.uptime[7] is not none %}{{ c.uptime[7]|round(2) }}%{% else %}&ndash;{% endif %}</td>
+                        <td>{% if c.uptime[30] is not none %}{{ c.uptime[30]|round(2) }}%{% else %}&ndash;{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="pub-section">
+        <h2>Recent incidents</h2>
+        {% if incidents %}
+        <ul class="pub-incidents">
+            {% for i in incidents %}
+            <li class="pub-incident">
+                <span class="sla-pill {{ 'sla-bad' if i.open else 'sla-good' }}">{{ 'Ongoing' if i.open else 'Resolved' }}</span>
+                <div class="pub-incident-body">
+                    <strong>{{ i.started_at }} UTC</strong>
+                    <span>
+                        {{ i.duration_label }}
+                        {% if not i.open %}(ended {{ i.ended_at }} UTC){% endif %}
+                    </span>
+                    <span>{{ i.checks|join(", ") }} &middot; likely cause: {{ i.root_cause }}</span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="pub-empty">No incidents in the last 30 days.</p>
+        {% endif %}
+    </section>
+
+    {% else %}
+    <!-- ================= ALL COMPANIES ================= -->
+    <div class="pub-hero">
+        <div class="pub-hero-title">
+            <h1>System status</h1>
+        </div>
+        <p class="pub-meta">Updated {{ now_label }} UTC &middot; refreshes automatically</p>
+    </div>
+
+    {% if stale_banner %}
+    <div class="pub-banner pub-banner-warn">{{ stale_banner }}</div>
+    {% endif %}
+
+    {% if cards %}
+    <div class="pub-grid">
+        {% for c in cards %}
+        <a class="pub-card" href="/status?company={{ c.name|urlencode }}">
+            <div class="pub-card-head">
+                <h2>{{ c.name }}</h2>
+                <span class="sla-pill {{ c.state_class }}">{{ c.state_label }}</span>
+            </div>
+            <div class="pub-dots">
+                {% for chk in c.checks %}
+                <span class="pub-dot pub-dot-{{ chk.view }}"
+                      title="{{ chk.name }}: {{ chk.view_label }}">{{ chk.name }}</span>
+                {% endfor %}
+            </div>
+            <div class="pub-card-foot">
+                {% if c.down_count %}
+                <span class="pub-down-note">{{ c.down_count }} check{{ 's' if c.down_count != 1 else '' }} down</span>
+                {% endif %}
+                {% if c.open_incidents %}
+                <span class="pub-down-note">{{ c.open_incidents }} ongoing incident{{ 's' if c.open_incidents != 1 else '' }}</span>
+                {% endif %}
+                <span class="pub-meta">
+                    Last check {{ c.last_label }}{% if c.last_label != 'never' %} ago{% endif %}
+                </span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="pub-empty">No companies are published on this status page.</p>
+    {% endif %}
+
+    {% endif %}
+
+</main>
+
+<footer class="pub-footer">
+    <span>Times in UTC &middot; auto-refreshes every 60 seconds</span>
+    <a href="{{ url_for('login') }}">Log in</a>
+</footer>
+
+<script>
+    /* Auto-refresh so the page is a live status board. */
+    setTimeout(function () { window.location.reload(); }, 60000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Uptime Monitor - network availability dashboards, incidents and public status pages.">
+    <title>{{ code }} - Uptime Monitor</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%232d44d3'/%3E%3Cpath d='M7 19h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <!-- Local stylesheet only (theme tokens live there). No CDN, no
+         web fonts - the error page must render even if the internet
+         is down. -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+    <script>
+        /* Restore theme before first paint - avoids a flash of the wrong theme. */
+        (function() {
+            var saved = null;
+            try { saved = localStorage.getItem("theme"); } catch (e) {}
+            if (!saved) {
+                saved = (window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: dark)").matches)
+                    ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-theme", saved);
+        })();
+    </script>
+    <style>
+        body.error-page {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: var(--canvas);
+            color: var(--ink);
+        }
+
+        .error-card {
+            width: 100%;
+            max-width: 440px;
+            padding: 48px 40px 40px;
+            text-align: center;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: 0 12px 34px rgba(18, 32, 46, 0.10);
+        }
+
+        .error-mark {
+            width: 44px;
+            height: 44px;
+            display: inline-block;
+        }
+
+        .error-mark .m-bg { fill: var(--brand-fill); }
+        .error-mark .m-line { stroke: #ffffff; }
+
+        .error-code {
+            margin: 18px 0 2px;
+            font-family: var(--font-display);
+            font-size: 62px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            color: var(--brand);
+        }
+
+        .error-card h1 {
+            margin: 10px 0 8px;
+            font-family: var(--font-display);
+            font-size: 23px;
+            letter-spacing: -0.01em;
+        }
+
+        .error-message {
+            margin: 0 0 28px;
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--ink-2);
+        }
+
+        .error-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .error-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 46px;
+            border-radius: 10px;
+            background: var(--brand-fill);
+            color: #ffffff;
+            font-size: 14.5px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.15s ease;
+        }
+
+        .error-primary:hover { background: var(--brand-fill-hover); }
+
+        .error-secondary {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--brand);
+            text-decoration: none;
+        }
+
+        .error-secondary:hover { text-decoration: underline; }
+
+        .error-foot {
+            margin-top: 26px;
+            font-size: 12.5px;
+            color: var(--ink-3);
+        }
+    </style>
+</head>
+<body class="error-page">
+<main class="error-card">
+    <svg class="error-mark" viewBox="0 0 36 36" aria-hidden="true"><rect class="m-bg" width="36" height="36" rx="10"/><path class="m-line" d="M7 19h5l3-8 5 15 3-7h6" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <p class="error-code">{{ code }}</p>
+    <h1>{{ title }}</h1>
+    <p class="error-message">{{ message }}</p>
+    <div class="error-actions">
+        <a class="error-primary" href="/dashboard">Back to dashboard</a>
+        <a class="error-secondary" href="/status">View public status</a>
+    </div>
+    <p class="error-foot">Uptime Monitor &middot; if this keeps happening, check monitor.log on the server.</p>
+</main>
+</body>
+</html>
