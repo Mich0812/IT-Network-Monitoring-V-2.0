@@ -75,7 +75,7 @@ def test_sidebar_partial_gates_admin_links():
     assert src.count("{% if active_page ==") >= 7
     # account chrome
     assert 'class="sidebar-logout"' in src
-    assert "url_for('logout')" in src
+    assert "url_for('auth.logout')" in src
     assert 'id="themeToggle"' in src
     assert 'class="skip-link"' in src
 

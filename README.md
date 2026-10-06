@@ -841,3 +841,55 @@ Chart.js CDN - and the shared template code collapsed into partials.
   `/status` unaffected with an empty window list; Lighthouse on
   `/status` + `/alerts`: **100/100/100**, zero console messages.
 
+## V2.3 Phase 13 - blueprint split of app.py
+
+`app.py` had grown to ~3,000 lines holding every route, helper and
+constant. It is now a thin 390-line shell: configuration, CSP/error
+pages, the context processor, blueprint registration and the
+`__main__` startup block. Shared helpers and constants moved to
+`core.py`; all 34 routes moved into six blueprints:
+
+| File | Endpoints | Routes |
+| --- | --- | --- |
+| `blueprints/auth.py` | `auth.*` | `/login`, `/logout` |
+| `blueprints/pages.py` | `pages.*` | `/`, `/dashboard`, `/overview`, `/reports`, `/incidents` |
+| `blueprints/status.py` | `status.*` | `/status` + its private helpers |
+| `blueprints/api.py` | `api.*` | all 18 `/api/*` routes + `_valid_ts`, `_parse_hours` |
+| `blueprints/admin.py` | `admin.*` | `/users`, `/users/*`, `/alerts` |
+| `blueprints/agents.py` | `agents.*` | `/agents`, `/agents/<company>/token`, `/agents/<company>/revoke` |
+
+`app.py` re-exports every name it used to own (`from core import
+get_db, require_admin, ...`) so existing test access like
+`app.get_db()` and `app_module.PUBLIC_STATUS` keeps working.
+
+### Key decisions
+
+- **URL paths never changed** - only endpoint names gained a
+  `blueprint.` prefix, so bookmarks, the path-based sidebar links,
+  dashboard JS and every HTTP-level test work untouched. Template
+  and in-code `url_for` call sites were updated to the namespaced
+  names (`auth.login`, `auth.logout`, `pages.dashboard`,
+  `status.public_status`, `admin.users_page`, `agents.agents_page`).
+- **Patched flags stay patchable** - tests do
+  `monkeypatch.setattr(app_module, "PUBLIC_STATUS", ...)`. Moved
+  routes therefore never `from config import PUBLIC_STATUS`; they
+  read flags at request time through `core.live_flags()`, which
+  returns the app module stored in `app.extensions["app_module"]`.
+  `/status` uses it for `PUBLIC_STATUS`, `/alerts` for
+  `MAINTENANCE`, so the phase-8/12 test patches still reach them.
+- **No circular imports** - blueprints import from `core` and
+  `config`, never from `app`. `app.py` imports the blueprints last,
+  after `app` and `app.extensions` exist.
+
+### Tests & verification
+
+- `python -m pytest -q` -> **208 passed** (baseline unchanged;
+  the suite was re-run green after every extraction step).
+- Live (fresh server, exactly one listener on `:5000`): `/login`
+  200 (form posts to `/login`, status link points to `/status`),
+  `/status` 200 (footer login link, live data), `/dashboard` 302 ->
+  `/login` when anonymous, logout -> login round-trip, and
+  `/api/health` + `/api/status` answer
+  `401 {"error": "Unauthorized"}` for anonymous callers.
+- Hygiene: real DB `users = [admin]`, `login_failures = 0`.
+
