@@ -543,6 +543,23 @@ def _parse_hours(default=24):
     return hours
 
 
+ALLOWED_RESOLUTIONS = ("raw", "hour", "day")
+
+
+def _parse_resolution(default="raw"):
+    """Bucket size for chart APIs. Unknown values fall back to raw."""
+    value = (request.args.get("resolution") or default).strip().lower()
+    if value not in ALLOWED_RESOLUTIONS:
+        return "raw"
+    return value
+
+
+def _bucket_expr(resolution):
+    if resolution == "day":
+        return "substr(timestamp, 1, 10)"
+    return "substr(timestamp, 1, 13) || ':00:00'"
+
+
 # ============================================================
 # NETWORK LATENCY API
 # ============================================================
@@ -560,7 +577,61 @@ def latency_data():
 
     company = get_selected_company()
 
+    resolution = _parse_resolution("raw")
+
     conn = get_db()
+
+    if resolution in ("hour", "day"):
+        bucket = _bucket_expr(resolution)
+        rows = conn.execute(
+            f"""
+            SELECT
+                {bucket} AS bucket,
+                check_type,
+                AVG(CASE WHEN status = 'UP' THEN latency END) AS avg_lat,
+                SUM(CASE WHEN status = 'UP' THEN 1 ELSE 0 END) AS up_count
+            FROM ping_results
+            WHERE timestamp >= datetime('now', ?)
+            AND company = ?
+            GROUP BY bucket, check_type
+            ORDER BY bucket ASC
+            """,
+            (f"-{hours} hours", company),
+        ).fetchall()
+        conn.close()
+
+        buckets = sorted({r["bucket"] for r in rows})
+        index = {b: i for i, b in enumerate(buckets)}
+        series = {
+            "Gateway": [None] * len(buckets),
+            "Internet": [None] * len(buckets),
+            "DNS": [None] * len(buckets),
+            "HTTPS": [None] * len(buckets),
+        }
+        for r in rows:
+            check = r["check_type"]
+            if check not in series:
+                continue
+            # Downtime bucket: no UP samples -> None so the
+            # Chart.js line cuts (spanGaps=False) and resumes
+            # on the next UP bucket.
+            value = (
+                round(r["avg_lat"], 2)
+                if (r["up_count"] or 0) > 0 and r["avg_lat"] is not None
+                else None
+            )
+            series[check][index[r["bucket"]]] = value
+
+        return {
+            "labels": buckets,
+            "gateway": series["Gateway"],
+            "internet": series["Internet"],
+            "dns": series["DNS"],
+            "https": series["HTTPS"],
+            "company": company,
+            "hours": hours,
+            "resolution": resolution,
+        }
 
     results = conn.execute(
         """
@@ -642,7 +713,9 @@ def latency_data():
         "internet": internet,
         "dns": dns,
         "https": https,
-        "company": company
+        "company": company,
+        "hours": hours,
+        "resolution": resolution
     }
 
 
@@ -846,11 +919,52 @@ def speedtest_data():
 
     hours = _parse_hours(24)
 
+    resolution = _parse_resolution("raw")
+
     # Speedtest only ever measures the connection of the machine
     # actually running speedtest.exe, so it's always tagged with
     # SPEEDTEST_COMPANY (see config.py) rather than whatever
     # company happens to be selected on the dashboard.
     conn = get_db()
+
+    if resolution in ("hour", "day"):
+        bucket = _bucket_expr(resolution)
+        rows = conn.execute(
+            f"""
+            SELECT
+                {bucket} AS bucket,
+                AVG(download) AS download,
+                AVG(upload) AS upload,
+                AVG(ping) AS ping,
+                COUNT(*) AS samples
+            FROM speedtest_results
+            WHERE timestamp >= datetime('now', ?)
+            AND company = ?
+            AND status = 'ok'
+            GROUP BY bucket
+            ORDER BY bucket ASC
+            """,
+            (f"-{hours} hours", SPEEDTEST_COMPANY),
+        ).fetchall()
+        conn.close()
+        return {
+            "labels": [r["bucket"] for r in rows],
+            "download": [
+                round(r["download"], 2) if r["download"] is not None else None
+                for r in rows
+            ],
+            "upload": [
+                round(r["upload"], 2) if r["upload"] is not None else None
+                for r in rows
+            ],
+            "ping": [
+                round(r["ping"], 2) if r["ping"] is not None else None
+                for r in rows
+            ],
+            "company": SPEEDTEST_COMPANY,
+            "hours": hours,
+            "resolution": resolution,
+        }
 
     results = conn.execute(
         """
@@ -910,7 +1024,9 @@ def speedtest_data():
         "download": download,
         "upload": upload,
         "ping": ping,
-        "company": SPEEDTEST_COMPANY
+        "company": SPEEDTEST_COMPANY,
+        "hours": hours,
+        "resolution": resolution
     }
 
 

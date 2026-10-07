@@ -517,6 +517,12 @@
                         <option value="720">Last 30 days</option>
                     </select>
 
+                    <select id="latencyResolution" aria-label="Resolution" onchange="handleLatencyResolution(this.value)">
+                        <option value="raw" selected>Per check</option>
+                        <option value="hour">Per hour</option>
+                        <option value="day">Per day</option>
+                    </select>
+
                 </div>
 
             </div>
@@ -603,11 +609,17 @@
                         <button type="button" data-type="bar" aria-pressed="false" onclick="setSpeedtestChartType('bar')">Bar</button>
                     </div>
 
-                    <select id="speedtestRange" aria-label="Time range" onchange="loadSpeedtest(this.value)">
+                    <select id="speedtestRange" aria-label="Time range" onchange="loadSpeedtest(this.value, byId('speedtestResolution').value)">
                         <option value="1">Last 1 hour</option>
                         <option value="12">Last 12 hours</option>
                         <option value="24" selected>Last day</option>
                         <option value="720">Last 30 days</option>
+                    </select>
+
+                    <select id="speedtestResolution" aria-label="Resolution" onchange="loadSpeedtest(byId('speedtestRange').value, this.value)">
+                        <option value="raw" selected>Per check</option>
+                        <option value="hour">Per hour</option>
+                        <option value="day">Per day</option>
                     </select>
 
                 </div>
