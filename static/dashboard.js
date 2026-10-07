@@ -126,10 +126,14 @@ function handleCompanyChange(value) {
 
     loadUptime(range);
 
-    loadLatency(range);
+    loadLatency(
+        range,
+        byId("latencyResolution") && byId("latencyResolution").value
+    );
 
     loadSpeedtest(
-        byId("speedtestRange").value
+        byId("speedtestRange").value,
+        byId("speedtestResolution") && byId("speedtestResolution").value
     );
 
     loadIncidents();
@@ -1014,15 +1018,28 @@ function chartTypeOptions(unit) {
    LATENCY
 ============================================================ */
 
-async function loadLatency(hours) {
+async function loadLatency(hours, resolution) {
 
     loadUptime(hours);
+
+    var res = resolution
+        || (byId("latencyResolution") && byId("latencyResolution").value)
+        || "raw";
+
+    // Raw 30-day view would plot tens of thousands of points.
+    // Coerce to hourly averages unless the user explicitly wants raw.
+    if (String(hours) === "720" && res === "raw") {
+        res = "hour";
+        if (byId("latencyResolution")) {
+            byId("latencyResolution").value = "hour";
+        }
+    }
 
     try {
 
         const response =
             await fetch(
-                `/api/latency?hours=${hours}&`
+                `/api/latency?hours=${hours}&resolution=${encodeURIComponent(res)}&`
                 + companyQuery()
             );
 
@@ -1055,7 +1072,20 @@ async function loadLatency(hours) {
 
 function handleLatencyRange(value) {
 
-    loadLatency(value);
+    loadLatency(
+        value,
+        byId("latencyResolution") && byId("latencyResolution").value
+    );
+
+}
+
+
+function handleLatencyResolution(value) {
+
+    loadLatency(
+        byId("latencyRange").value,
+        value
+    );
 
 }
 
@@ -1177,13 +1207,17 @@ function lastValue(values) {
 }
 
 
-async function loadSpeedtest(hours) {
+async function loadSpeedtest(hours, resolution) {
 
     try {
 
+        var res = resolution
+            || (byId("speedtestResolution") && byId("speedtestResolution").value)
+            || "raw";
+
         const response =
             await fetch(
-                `/api/speedtest?hours=${hours}&`
+                `/api/speedtest?hours=${hours}&resolution=${encodeURIComponent(res)}&`
                 + companyQuery()
             );
 
@@ -1820,7 +1854,10 @@ setInterval(
         const range =
             byId("latencyRange").value;
 
-        loadLatency(range);
+        const res =
+            byId("latencyResolution") && byId("latencyResolution").value;
+
+        loadLatency(range, res);
 
     },
     60000
@@ -1842,7 +1879,10 @@ setInterval(
         const range =
             byId("speedtestRange").value;
 
-        loadSpeedtest(range);
+        const res =
+            byId("speedtestResolution") && byId("speedtestResolution").value;
+
+        loadSpeedtest(range, res);
 
     },
     60000

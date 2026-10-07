@@ -16,8 +16,8 @@ STATIC = os.path.join(PROJECT, "static")
 
 APP_PAGES = [
     "dashboard.html", "overview.html", "incidents.html", "reports.html",
-    "users.html", "agents.html", "login.html", "public_status.html",
-    "error.html",
+    "users.html", "agents.html", "alerts.html", "login.html",
+    "public_status.html", "error.html",
 ]
 SIDEBAR_PAGES = {
     "overview.html": "overview",
@@ -25,6 +25,7 @@ SIDEBAR_PAGES = {
     "reports.html": "reports",
     "users.html": "users",
     "agents.html": "agents",
+    "alerts.html": "alerts",
 }
 
 
@@ -74,7 +75,7 @@ def test_sidebar_partial_gates_admin_links():
     assert src.count("{% if active_page ==") >= 7
     # account chrome
     assert 'class="sidebar-logout"' in src
-    assert "url_for('logout')" in src
+    assert "url_for('auth.logout')" in src
     assert 'id="themeToggle"' in src
     assert 'class="skip-link"' in src
 

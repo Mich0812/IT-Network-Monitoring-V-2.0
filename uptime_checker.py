@@ -184,7 +184,9 @@ def initialize_database():
 
             ping REAL,
 
-            server TEXT
+            server TEXT,
+
+            status TEXT NOT NULL DEFAULT 'ok'
 
         )
     """)
@@ -210,6 +212,19 @@ def initialize_database():
                 "ADD COLUMN company TEXT "
                 "NOT NULL DEFAULT 'Company A'"
             )
+
+    # --------------------------------------------------------
+    # Migration: "status" marks failed speedtest runs ('ok' for
+    # every pre-existing row; failed rows keep NULL speeds).
+    # --------------------------------------------------------
+
+    try:
+        conn.execute(
+            "ALTER TABLE speedtest_results "
+            "ADD COLUMN status TEXT NOT NULL DEFAULT 'ok'"
+        )
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
     # --------------------------------------------------------
     # OUTAGES - closed incidents (UP->DOWN ... DOWN->UP).
@@ -688,7 +703,8 @@ def save_speedtest(
     download,
     upload,
     ping_value,
-    server
+    server,
+    status="ok"
 ):
 
     try:
@@ -704,9 +720,10 @@ def save_speedtest(
                 download,
                 upload,
                 ping,
-                server
+                server,
+                status
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 timestamp,
@@ -714,7 +731,8 @@ def save_speedtest(
                 download,
                 upload,
                 ping_value,
-                server
+                server,
+                status
             )
         )
 
@@ -727,6 +745,25 @@ def save_speedtest(
         log.warning(
             f"Database error: {error}"
         )
+
+
+def save_speedtest_failure(reason):
+    """Record a failed speedtest attempt.
+
+    Failed runs used to vanish into the log, leaving an unexplained
+    gap in the chart. A row with status='failed', NULL speeds and the
+    reason in `server` keeps the history honest without polluting the
+    charts (they filter status='ok').
+    """
+    save_speedtest(
+        utc_now_str(),
+        SPEEDTEST_COMPANY,
+        None,
+        None,
+        None,
+        "FAILED: " + str(reason)[:160],
+        status="failed",
+    )
 
 
 # ============================================================
@@ -755,6 +792,8 @@ def run_speedtest():
             "Set SPEEDTEST_PATH env var.",
             SPEEDTEST_EXE,
         )
+
+        save_speedtest_failure(f"binary not found: {SPEEDTEST_EXE}")
 
         return False
 
@@ -802,6 +841,11 @@ def run_speedtest():
                 (result.stderr or "")[:500],
             )
 
+            save_speedtest_failure(
+                f"exit {result.returncode}: "
+                f"{(result.stderr or result.stdout or '')[:120]}"
+            )
+
             return False
 
         # ----------------------------------------------------
@@ -817,6 +861,8 @@ def run_speedtest():
             log.warning(
                 "Unexpected Speedtest output (no result object)."
             )
+
+            save_speedtest_failure("unexpected output (no result object)")
 
             return False
 
@@ -952,6 +998,8 @@ def run_speedtest():
             "Speedtest timed out."
         )
 
+        save_speedtest_failure("timed out after 180s")
+
         return False
 
     except json.JSONDecodeError:
@@ -960,6 +1008,8 @@ def run_speedtest():
             "Could not read Speedtest JSON."
         )
 
+        save_speedtest_failure("could not parse JSON output")
+
         return False
 
     except Exception as error:
@@ -967,6 +1017,8 @@ def run_speedtest():
         log.warning(
             f"Speedtest error: {error}"
         )
+
+        save_speedtest_failure(f"error: {error}")
 
         return False
 

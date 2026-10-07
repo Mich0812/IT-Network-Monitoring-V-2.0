@@ -119,6 +119,14 @@
         </p>
     </div>
 
+    {% if maintenance_active %}
+    <div class="pub-banner pub-banner-info" role="status">
+        <strong>Scheduled maintenance</strong> in progress for
+        {{ maintenance_active|join(", ") }} - results may be delayed
+        or checks paused during the window.
+    </div>
+    {% endif %}
+
     {% if stale_banner %}
     <div class="pub-banner pub-banner-warn">{{ stale_banner }}</div>
     {% endif %}
@@ -227,6 +235,14 @@
         <p class="pub-meta">Updated {{ now_label }} UTC &middot; refreshes automatically</p>
     </div>
 
+    {% if maintenance_active %}
+    <div class="pub-banner pub-banner-info" role="status">
+        <strong>Scheduled maintenance</strong> in progress for
+        {{ maintenance_active|join(", ") }} - results may be delayed
+        or checks paused during the window.
+    </div>
+    {% endif %}
+
     {% if stale_banner %}
     <div class="pub-banner pub-banner-warn">{{ stale_banner }}</div>
     {% endif %}
@@ -269,7 +285,7 @@
 
 <footer class="pub-footer">
     <span>Times in UTC &middot; auto-refreshes every 60 seconds</span>
-    <a href="{{ url_for('login') }}">Log in</a>
+    <a href="{{ url_for('auth.login') }}">Log in</a>
 </footer>
 
 <script>
