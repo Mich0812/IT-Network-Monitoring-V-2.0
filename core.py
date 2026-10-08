@@ -255,14 +255,18 @@ def initialize_database():
         "SELECT id FROM users LIMIT 1"
     ).fetchone()
 
+    env_username = os.environ.get(
+        "ADMIN_USERNAME",
+        "admin"
+    )
+
+    env_password = os.environ.get("ADMIN_PASSWORD")
+
     if any_user is None:
 
-        username = os.environ.get(
-            "ADMIN_USERNAME",
-            "admin"
-        )
+        username = env_username
 
-        password = os.environ.get("ADMIN_PASSWORD")
+        password = env_password
 
         generated = password is None
 
@@ -306,6 +310,36 @@ def initialize_database():
             )
 
             print("=" * 60)
+
+    elif env_password:
+        # Container recovery: a persisted uptime.db keeps the old
+        # password, so setting ADMIN_PASSWORD after first boot did
+        # nothing and login looked "broken". Treat the env vars as
+        # authoritative - create or reset that user to role admin.
+        existing = conn.execute(
+            "SELECT id FROM users WHERE username = ?",
+            (env_username,),
+        ).fetchone()
+        password_hash = generate_password_hash(env_password)
+        if existing is None:
+            conn.execute(
+                "INSERT INTO users (username, password, role) "
+                "VALUES (?, ?, 'admin')",
+                (env_username, password_hash),
+            )
+            print(
+                f"Created admin account from env: {env_username} "
+                "(ADMIN_USERNAME/ADMIN_PASSWORD)."
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET password = ?, role = 'admin' "
+                "WHERE username = ?",
+                (password_hash, env_username),
+            )
+            print(
+                f"Reset admin password from env for user: {env_username}."
+            )
 
     conn.commit()
     conn.close()
