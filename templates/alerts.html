@@ -180,7 +180,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Sent (UTC)</th>
+                        <th>Sent (local)</th>
                         <th>Company</th>
                         <th>Check</th>
                         <th>Kind</th>
@@ -192,7 +192,7 @@
                 <tbody>
                     {% for a in recent_alerts %}
                     <tr>
-                        <td>{{ a.sent_at }}</td>
+                        <td><span data-utc="{{ a.sent_at }}" title="{{ a.sent_at }} UTC">{{ a.sent_at }}</span></td>
                         <td>{{ a.company }}</td>
                         <td>{{ a.check_type }}</td>
                         <td>{{ a.kind }}</td>
@@ -268,6 +268,22 @@ function sendTestAlert(){
         })
         .finally(function(){btn.disabled=false;});
 }
+/* UTC timestamps from the server render in the viewer's local timezone. */
+(function(){
+    function pad2(n){ return String(n).padStart(2, "0"); }
+    function toLocal(ts){
+        if (!ts) return ts;
+        const d = new Date(String(ts).replace(" ", "T") + "Z");
+        if (isNaN(d.getTime())) return ts;
+        return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-"
+            + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":"
+            + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+    }
+    document.querySelectorAll("[data-utc]").forEach(function(el){
+        const utc = el.getAttribute("data-utc");
+        if (utc) { el.textContent = toLocal(utc); }
+    });
+})();
 </script>
 </body>
 </html>

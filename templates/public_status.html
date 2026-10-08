@@ -53,7 +53,7 @@
 
 <header class="pub-header">
 
-    <a class="pub-brand" href="/status">
+    <a class="pub-brand" href="/status" aria-label="Return to system status">
         <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
             <rect class="m-bg" width="36" height="36" rx="10"/>
             <path class="m-line" d="M7 19h5l3-8 5 15 3-7h6"/>
@@ -133,7 +133,7 @@
 
     {% if ongoing %}
     <div class="pub-banner pub-banner-bad">
-        <strong>Ongoing incident</strong> since {{ ongoing.started_at }} UTC
+        <strong>Ongoing incident</strong> since <span data-utc="{{ ongoing.started_at }}" title="{{ ongoing.started_at }} UTC">{{ ongoing.started_at }}</span>
         &mdash; likely cause: {{ ongoing.root_cause }}
         (checks affected: {{ ongoing.checks|join(", ") }}).
     </div>
@@ -148,7 +148,7 @@
                         <th>Check</th>
                         <th>Status</th>
                         <th>Latency</th>
-                        <th>Last checked (UTC)</th>
+                        <th>Last checked (local)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -165,7 +165,7 @@
                         </td>
                         <td>
                             {% if c.timestamp %}
-                                {{ c.timestamp }} ({{ c.age_label }})
+                                <span data-utc="{{ c.timestamp }}" title="{{ c.timestamp }} UTC">{{ c.timestamp }}</span> ({{ c.age_label }})
                             {% else %}
                                 No data yet
                             {% endif %}
@@ -211,10 +211,10 @@
             <li class="pub-incident">
                 <span class="sla-pill {{ 'sla-bad' if i.open else 'sla-good' }}">{{ 'Ongoing' if i.open else 'Resolved' }}</span>
                 <div class="pub-incident-body">
-                    <strong>{{ i.started_at }} UTC</strong>
+                    <strong><span data-utc="{{ i.started_at }}" title="{{ i.started_at }} UTC">{{ i.started_at }}</span></strong>
                     <span>
                         {{ i.duration_label }}
-                        {% if not i.open %}(ended {{ i.ended_at }} UTC){% endif %}
+                        {% if not i.open %}(ended <span data-utc="{{ i.ended_at }}" title="{{ i.ended_at }} UTC">{{ i.ended_at }}</span>){% endif %}
                     </span>
                     <span>{{ i.checks|join(", ") }} &middot; likely cause: {{ i.root_cause }}</span>
                 </div>
@@ -284,11 +284,27 @@
 </main>
 
 <footer class="pub-footer">
-    <span>Times in UTC &middot; auto-refreshes every 60 seconds</span>
+    <span>Times in your local timezone &middot; auto-refreshes every 60 seconds</span>
     <a href="{{ url_for('auth.login') }}">Log in</a>
 </footer>
 
 <script>
+    /* UTC timestamps from the server render in the viewer's local timezone. */
+    (function () {
+        function pad2(n) { return String(n).padStart(2, "0"); }
+        function toLocal(ts) {
+            if (!ts) return ts;
+            var d = new Date(String(ts).replace(" ", "T") + "Z");
+            if (isNaN(d.getTime())) return ts;
+            return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-"
+                + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":"
+                + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+        }
+        document.querySelectorAll("[data-utc]").forEach(function (el) {
+            var utc = el.getAttribute("data-utc");
+            if (utc) { el.textContent = toLocal(utc); }
+        });
+    })();
     /* Auto-refresh so the page is a live status board. */
     setTimeout(function () { window.location.reload(); }, 60000);
 </script>

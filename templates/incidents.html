@@ -74,8 +74,8 @@
                         <th>Status</th>
                         <th>Company</th>
                         <th>Checks affected</th>
-                        <th>Started (UTC)</th>
-                        <th>Ended (UTC)</th>
+                        <th>Started (local)</th>
+                        <th>Ended (local)</th>
                         <th class="num">Duration</th>
                         <th>Likely cause</th>
                     </tr>
@@ -100,7 +100,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Sent (UTC)</th>
+                        <th>Sent (local)</th>
                         <th>Company</th>
                         <th>Check</th>
                         <th>Kind</th>
@@ -157,6 +157,17 @@ function esc(s){
     });
 }
 
+function pad2(n){ return String(n).padStart(2, "0"); }
+
+function formatUtcToLocal(ts){
+    if (!ts) return ts;
+    const d = new Date(String(ts).replace(" ", "T") + "Z");
+    if (isNaN(d.getTime())) return ts;
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-"
+        + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":"
+        + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+}
+
 function fmtDur(seconds){
     if (seconds === null || seconds === undefined) return "\u2013";
     if (seconds < 60) return Math.round(seconds) + " s";
@@ -202,8 +213,8 @@ async function loadIncidents(){
                 + "<td>" + esc(i.checks.join(", "))
                 + (i.outage_count > 1 ? " <span class='sla-pill sla-none'>"
                     + i.outage_count + " outages</span>" : "") + "</td>"
-                + "<td>" + esc(i.started_at) + "</td>"
-                + "<td>" + esc(i.ended_at || "ongoing") + "</td>"
+                + "<td title=\"" + esc(i.started_at) + " UTC\">" + esc(formatUtcToLocal(i.started_at)) + "</td>"
+                + "<td>" + esc(i.ended_at ? formatUtcToLocal(i.ended_at) : "ongoing") + "</td>"
                 + '<td class="num">' + fmtDur(i.duration) + "</td>"
                 + "<td>" + esc(i.root_cause) + "</td>"
                 + "</tr>";
@@ -230,7 +241,7 @@ async function loadHistory(){
         }
         body.innerHTML = data.notifications.map(function(n){
             return "<tr>"
-                + "<td>" + esc(n.sent_at) + "</td>"
+                + "<td title=\"" + esc(n.sent_at) + " UTC\">" + esc(formatUtcToLocal(n.sent_at)) + "</td>"
                 + "<td>" + esc(n.company) + "</td>"
                 + "<td>" + esc(n.check_type) + "</td>"
                 + "<td>" + esc(n.kind) + "</td>"

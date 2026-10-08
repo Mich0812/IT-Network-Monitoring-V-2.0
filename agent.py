@@ -48,6 +48,17 @@ from datetime import datetime, timezone
 
 
 # ============================================================
+# SUBPROCESS - NEVER POP A CONSOLE WINDOW
+# ============================================================
+
+# Same as the server: when this agent runs from a console-less parent
+# (pythonw.exe, a shortcut in windowed mode, Task Scheduler), every
+# ping/ipconfig child would otherwise open its own console window.
+# 0 elsewhere: creationflags must be 0 on POSIX, which is the default.
+NO_CONSOLE_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+# ============================================================
 # CONFIGURATION
 # ============================================================
 
@@ -97,6 +108,7 @@ def get_gateway():
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                creationflags=NO_CONSOLE_WINDOW,
             )
             in_gateway_block = False
             for line in result.stdout.splitlines():
@@ -118,6 +130,7 @@ def get_gateway():
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                creationflags=NO_CONSOLE_WINDOW,
             )
             match = re.search(r"gateway:\s*(\S+)", result.stdout)
             if match:
@@ -130,6 +143,7 @@ def get_gateway():
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                creationflags=NO_CONSOLE_WINDOW,
             )
             for line in result.stdout.splitlines():
                 if line.startswith("default") and "via" in line:
@@ -180,6 +194,7 @@ def ping(target):
             stderr=subprocess.PIPE,
             text=True,
             timeout=10,
+            creationflags=NO_CONSOLE_WINDOW,
         )
         if result.returncode == 0:
             latency = parse_ping_latency(result.stdout)

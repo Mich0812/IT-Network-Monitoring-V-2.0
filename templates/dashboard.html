@@ -37,7 +37,7 @@
 
 <aside class="sidebar" id="sidebar">
 
-    <div class="sidebar-header">
+    <a class="sidebar-header" href="/overview" aria-label="Return to overview dashboard">
 
         <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
             <rect class="m-bg" width="36" height="36" rx="10"/>
@@ -49,7 +49,7 @@
             <span>Network monitoring</span>
         </div>
 
-    </div>
+    </a>
 
 
     <!-- COMPANY SWITCHER -->
@@ -134,7 +134,7 @@
             <span>Reports</span>
         </a>
 
-        <a href="/status" class="nav-item">
+        <a href="/status" target="_blank" rel="noopener" title="Open public status in a new tab" class="nav-item">
             <span class="nav-icon">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="10"/>
@@ -500,7 +500,7 @@
 
                 <div>
                     <h2>Network latency</h2>
-                    <p>Gateway, internet, DNS and HTTPS response times</p>
+                    <p>Gateway, internet, DNS and HTTPS response times &middot; times in your local timezone</p>
                 </div>
 
                 <div class="card-header-controls">
@@ -517,10 +517,18 @@
                         <option value="720">Last 30 days</option>
                     </select>
 
-                    <select id="latencyResolution" aria-label="Resolution" onchange="handleLatencyResolution(this.value)">
-                        <option value="raw" selected>Per check</option>
+                    <select id="latencyResolution" aria-label="Resolution" onchange="handleLatencyResolution(this.value)" title="Bucket size: how raw checks are grouped. Any failed check cuts the line.">
+                        <option value="auto" selected>Auto bucket</option>
+                        <option value="raw">Per check</option>
+                        <option value="1m">Per minute</option>
+                        <option value="5m">Per 5 min</option>
+                        <option value="15m">Per 15 min</option>
                         <option value="hour">Per hour</option>
+                        <option value="1h">Per hour (exact)</option>
+                        <option value="6h">Per 6 hours</option>
                         <option value="day">Per day</option>
+                        <option value="1d">Per day (exact)</option>
+                    </select>
                     </select>
 
                 </div>
@@ -597,7 +605,7 @@
 
                 <div>
                     <h2>Speedtest history</h2>
-                    <p>Download and upload performance</p>
+                    <p>Download and upload performance &middot; times in your local timezone</p>
 
                     <span id="speedtestCompanyNote" class="speedtest-note" style="display: none;"></span>
                 </div>
@@ -676,7 +684,7 @@
 
 </div>
 
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=3"></script>
 
 </body>
 </html>

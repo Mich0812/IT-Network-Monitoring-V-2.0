@@ -77,7 +77,7 @@
                         <th>Company</th>
                         <th>Managed by</th>
                         <th>Token</th>
-                        <th>Last seen (UTC)</th>
+                        <th>Last seen (local)</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -97,7 +97,13 @@
                                 <span class="unit">none</span>
                             {% endif %}
                         </td>
-                        <td>{{ c.last_seen or "&mdash;"|safe }}</td>
+                        <td>
+                            {% if c.last_seen %}
+                            <span data-utc="{{ c.last_seen }}" title="{{ c.last_seen }} UTC">{{ c.last_seen }}</span>
+                            {% else %}
+                            {{ "&mdash;"|safe }}
+                            {% endif %}
+                        </td>
                         <td>
                             <div class="users-table-actions">
                                 <form method="POST" action="/agents/{{ c.name }}/token" class="users-inline-form"
@@ -147,6 +153,22 @@ function toggleTheme(){
 })();
 document.getElementById("menuButton").addEventListener("click",function(){document.body.classList.toggle("nav-open");});
 document.getElementById("scrim").addEventListener("click",function(){document.body.classList.remove("nav-open");});
+/* UTC timestamps from the server render in the viewer's local timezone. */
+(function(){
+    function pad2(n){ return String(n).padStart(2, "0"); }
+    function toLocal(ts){
+        if (!ts) return ts;
+        const d = new Date(String(ts).replace(" ", "T") + "Z");
+        if (isNaN(d.getTime())) return ts;
+        return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-"
+            + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":"
+            + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+    }
+    document.querySelectorAll("[data-utc]").forEach(function(el){
+        const utc = el.getAttribute("data-utc");
+        if (utc) { el.textContent = toLocal(utc); }
+    });
+})();
 </script>
 </body>
 </html>

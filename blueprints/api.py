@@ -543,14 +543,14 @@ def _parse_hours(default=24):
     return hours
 
 
-ALLOWED_RESOLUTIONS = ("raw", "hour", "day")
+ALLOWED_RESOLUTIONS = ("raw", "hour", "day", "auto", "1m", "5m", "15m", "1h", "6h", "1d")
 
 
 def _parse_resolution(default="raw"):
-    """Bucket size for chart APIs. Unknown values fall back to raw."""
+    """Bucket size for chart APIs. Unknown values fall back to default."""
     value = (request.args.get("resolution") or default).strip().lower()
     if value not in ALLOWED_RESOLUTIONS:
-        return "raw"
+        return default
     return value
 
 
@@ -577,7 +577,41 @@ def latency_data():
 
     company = get_selected_company()
 
-    resolution = _parse_resolution("raw")
+    # Bucketing: raw points hide downtime when hundreds of points share
+    # a few pixels (a 1px gap from spanGaps:false is invisible). Buckets
+    # average each window; any failed check in the bucket cuts the line
+    # (null) so downtime always shows as a gap that resumes on recovery.
+    # resolution: raw (default) | auto | hour | day | 1m | 5m | 15m | 1h | 6h | 1d
+    # hour/day use the SQL averaging path below (per-check per-hour /
+    # per-day with downtime gaps); auto + fine buckets use Python epoch
+    # bucketing further below. Unknown values fall back to raw.
+    _raw_param = request.args.get("resolution")
+    _FINE_BUCKETS = {
+        "raw": 0, "1m": 60, "5m": 300, "15m": 900,
+        "1h": 3600, "6h": 21600, "1d": 86400,
+    }
+    if _raw_param in (None, ""):
+        resolution = "raw"
+        bucket_seconds = 0
+    else:
+        raw_resolution = _raw_param.strip().lower()
+        if raw_resolution in ("hour", "day"):
+            resolution = raw_resolution
+            bucket_seconds = 3600 if raw_resolution == "hour" else 86400
+        elif raw_resolution == "auto":
+            if hours <= 1:
+                bucket_seconds = 0
+            elif hours <= 24:
+                bucket_seconds = 300
+            else:
+                bucket_seconds = 3600
+            resolution = "auto"
+        elif raw_resolution in _FINE_BUCKETS:
+            bucket_seconds = _FINE_BUCKETS[raw_resolution]
+            resolution = raw_resolution
+        else:
+            bucket_seconds = 0
+            resolution = "raw"
 
     conn = get_db()
 
@@ -657,55 +691,126 @@ def latency_data():
 
     conn.close()
 
-    timestamp_map = {}
+    if bucket_seconds <= 0:
+        timestamp_map = {}
 
-    for result in results:
+        for result in results:
 
-        timestamp = result["timestamp"]
+            timestamp = result["timestamp"]
 
-        if timestamp not in timestamp_map:
+            if timestamp not in timestamp_map:
 
-            timestamp_map[timestamp] = {
-                "Gateway": None,
-                "Internet": None,
-                "DNS": None,
-                "HTTPS": None
-            }
+                timestamp_map[timestamp] = {
+                    "Gateway": None,
+                    "Internet": None,
+                    "DNS": None,
+                    "HTTPS": None
+                }
 
-        check_type = result["check_type"]
+            check_type = result["check_type"]
 
-        if check_type in timestamp_map[timestamp]:
+            if check_type in timestamp_map[timestamp]:
 
-            timestamp_map[timestamp][check_type] = (
-                result["latency"]
+                timestamp_map[timestamp][check_type] = (
+                    result["latency"]
+                )
+
+        labels = list(
+            timestamp_map.keys()
+        )
+
+        gateway = []
+        internet = []
+        dns = []
+        https = []
+
+        for timestamp in labels:
+
+            row = timestamp_map[timestamp]
+            gateway.append(row["Gateway"])
+            internet.append(row["Internet"])
+            dns.append(row["DNS"])
+            https.append(row["HTTPS"])
+
+        return {
+            "labels": labels,
+            "gateway": gateway,
+            "internet": internet,
+            "dns": dns,
+            "https": https,
+            "company": company,
+            "hours": hours,
+            "resolution": resolution,
+            "bucket_seconds": 0,
+        }
+
+    # --- Bucketed mode: floor each UTC timestamp to its window start ---
+    from datetime import datetime as _dt, timezone as _tz
+
+    def _parse_utc(value):
+        try:
+            return _dt.strptime(value, "%Y-%m-%d %H:%M:%S").replace(
+                tzinfo=_tz.utc
             )
+        except (ValueError, TypeError):
+            return None
 
-    labels = list(
-        timestamp_map.keys()
-    )
+    def _fmt_utc(moment):
+        return moment.strftime("%Y-%m-%d %H:%M:%S")
 
+    # bucket_start_epoch -> {check: [lat_sum, lat_n, total, failed]}
+    buckets = {}
+    for result in results:
+        moment = _parse_utc(result["timestamp"])
+        if moment is None:
+            continue
+        epoch = int(moment.timestamp())
+        start = (epoch // bucket_seconds) * bucket_seconds
+        slot = buckets.setdefault(start, {})
+        check_type = result["check_type"]
+        if check_type not in ("Gateway", "Internet", "DNS", "HTTPS"):
+            continue
+        cell = slot.setdefault(check_type, [0.0, 0, 0, 0])
+        cell[2] += 1
+        latency = result["latency"]
+        if latency is not None and result["status"] == "UP":
+            cell[0] += float(latency)
+            cell[1] += 1
+        else:
+            cell[3] += 1
+
+    starts = sorted(buckets.keys())
+
+    labels = []
     gateway = []
     internet = []
     dns = []
     https = []
 
-    for timestamp in labels:
-
-        gateway.append(
-            timestamp_map[timestamp]["Gateway"]
+    for start in starts:
+        slot = buckets[start]
+        labels.append(
+            _fmt_utc(_dt.fromtimestamp(start, tz=_tz.utc))
         )
-
-        internet.append(
-            timestamp_map[timestamp]["Internet"]
-        )
-
-        dns.append(
-            timestamp_map[timestamp]["DNS"]
-        )
-
-        https.append(
-            timestamp_map[timestamp]["HTTPS"]
-        )
+        series_vals = []
+        for name in ("Gateway", "Internet", "DNS", "HTTPS"):
+            cell = slot.get(name)
+            if not cell:
+                series_vals.append(None)
+                continue
+            lat_sum, lat_n, total, failed = cell
+            # Cut on ANY failure: a bucket with even one DOWN/ERROR
+            # returns null so the line breaks and resumes on recovery.
+            if failed:
+                series_vals.append(None)
+            else:
+                series_vals.append(
+                    round(lat_sum / lat_n, 2) if lat_n else None
+                )
+        gateway.append(series_vals[0])
+        internet.append(series_vals[1])
+        dns.append(series_vals[2])
+        https.append(series_vals[3])
 
     return {
         "labels": labels,
@@ -715,7 +820,8 @@ def latency_data():
         "https": https,
         "company": company,
         "hours": hours,
-        "resolution": resolution
+        "resolution": resolution,
+        "bucket_seconds": bucket_seconds,
     }
 
 

@@ -44,6 +44,7 @@
     --down: #d6384b;
     --down-ink: #a5202f;
     --down-soft: #fde8ea;
+    --down-line: #f6c4ca;
 
     --c-gateway: #4056d6;
     --c-internet: #0aa5b5;
@@ -107,6 +108,7 @@
     --down: #f0576b;
     --down-ink: #ff7b8c;
     --down-soft: #38161d;
+    --down-line: #5a2029;
 
     --c-gateway: #7b8cf5;
     --c-internet: #3ac6d6;
@@ -392,7 +394,7 @@ body.login-page {
     background: var(--down-soft);
     color: var(--down-ink);
 
-    border: 1px solid #f6c4ca;
+    border: 1px solid var(--down-line);
     border-radius: 10px;
 
     font-size: 14px;
@@ -1040,6 +1042,15 @@ body.login-page {
     padding: 0 8px 22px;
 }
 
+a.sidebar-header {
+    color: inherit;
+    text-decoration: none;
+}
+
+a.sidebar-header:hover h2 {
+    text-decoration: underline;
+}
+
 .sidebar-header h2 {
     font-size: 17px;
     letter-spacing: -0.01em;
@@ -1222,7 +1233,7 @@ body.login-page {
 
 .sidebar-logout:hover {
     background: var(--down-soft);
-    border-color: #f6c4ca;
+    border-color: var(--down-line);
     color: var(--down-ink);
 }
 
@@ -1373,7 +1384,7 @@ body.login-page {
 
 .refresh-info[data-state="error"] {
     background: var(--down-soft);
-    border-color: #f6c4ca;
+    border-color: var(--down-line);
     color: var(--down-ink);
 }
 
@@ -1846,7 +1857,7 @@ tbody tr:last-child td {
 }
 
 tbody tr:hover {
-    background: #f8f9fb;
+    background: var(--hover);
 }
 
 th.num,

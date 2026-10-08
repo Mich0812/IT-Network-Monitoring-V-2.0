@@ -25,6 +25,19 @@ from config import (
 
 
 # ============================================================
+# SUBPROCESS - NEVER POP A CONSOLE WINDOW
+# ============================================================
+
+# The monitor is started by Task Scheduler as pythonw.exe - a GUI
+# process with no console of its own. On Windows, a console program
+# started by a console-less parent gets a brand new console window,
+# so every ping/ipconfig/speedtest flashed a terminal that could not
+# be closed (the next 60s cycle just spawned a fresh one).
+# 0 elsewhere: creationflags must be 0 on POSIX, which is the default.
+NO_CONSOLE_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+# ============================================================
 # LOGGING
 # ============================================================
 
@@ -379,6 +392,7 @@ def get_gateway():
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                creationflags=NO_CONSOLE_WINDOW,
             )
 
             # The IPv4 gateway often sits on the line AFTER
@@ -420,6 +434,7 @@ def get_gateway():
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                creationflags=NO_CONSOLE_WINDOW,
             )
 
             match = re.search(
@@ -443,6 +458,7 @@ def get_gateway():
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                creationflags=NO_CONSOLE_WINDOW,
             )
 
             for line in result.stdout.splitlines():
@@ -525,6 +541,7 @@ def ping(target):
             stderr=subprocess.PIPE,
             text=True,
             timeout=10,
+            creationflags=NO_CONSOLE_WINDOW,
         )
 
         if result.returncode == 0:
@@ -827,7 +844,9 @@ def run_speedtest():
 
             text=True,
 
-            timeout=180
+            timeout=180,
+
+            creationflags=NO_CONSOLE_WINDOW,
         )
 
         # ----------------------------------------------------

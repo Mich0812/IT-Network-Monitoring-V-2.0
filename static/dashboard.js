@@ -97,6 +97,60 @@ function setText(element, text) {
 
 
 /* ============================================================
+   TIMEZONE
+   The database + API store timestamps in UTC ("YYYY-MM-DD
+   HH:MM:SS"). Browsers render them here in the viewer's LOCAL
+   timezone (e.g. UTC+8 Kuala Lumpur/Singapore), so the charts
+   and tables match the wall clock. Backend stays UTC.
+============================================================ */
+
+function parseUtcTimestamp(value) {
+
+    if (!value) {
+
+        return null;
+
+    }
+
+    const date = new Date(
+        String(value).replace(" ", "T") + "Z"
+    );
+
+    return isNaN(date.getTime()) ? null : date;
+
+}
+
+
+function pad2(number) {
+
+    return String(number).padStart(2, "0");
+
+}
+
+
+function formatUtcToLocal(value) {
+
+    const date = parseUtcTimestamp(value);
+
+    if (!date) {
+
+        return value;
+
+    }
+
+    return (
+        date.getFullYear() + "-"
+        + pad2(date.getMonth() + 1) + "-"
+        + pad2(date.getDate()) + " "
+        + pad2(date.getHours()) + ":"
+        + pad2(date.getMinutes()) + ":"
+        + pad2(date.getSeconds())
+    );
+
+}
+
+
+/* ============================================================
    COMPANY SWITCHER
 ============================================================ */
 
@@ -935,13 +989,18 @@ function chartTypeOptions(unit) {
 
                     label: function(context) {
 
+                        // Downtime must be explicit: a null gap alone is
+                        // invisible at day scale, so label it DOWN.
                         if (
                             context.parsed.y === null
                             ||
                             context.parsed.y === undefined
                         ) {
 
-                            return null;
+                            return (
+                                " " + context.dataset.label
+                                + ": DOWN - No reply"
+                            );
 
                         }
 
@@ -950,6 +1009,26 @@ function chartTypeOptions(unit) {
                             + ": " + context.parsed.y
                             + " " + unit
                         );
+
+                    },
+
+                    afterBody: function(items) {
+
+                        if (!items || !items.length) {
+                            return null;
+                        }
+
+                        const idx = items[0].dataIndex;
+                        const detail =
+                            lastLatencyData
+                            && lastLatencyData.down_detail
+                            && lastLatencyData.down_detail[idx];
+
+                        if (detail) {
+                            return "Downtime: " + detail;
+                        }
+
+                        return null;
 
                     }
 
@@ -1016,15 +1095,25 @@ function chartTypeOptions(unit) {
 
 /* ============================================================
    LATENCY
+   Buckets average UP replies; any failed check in a bucket
+   returns null so the line cuts and resumes on recovery
+   (spanGaps:false).
 ============================================================ */
+
+function latencyResolution() {
+
+    const el = byId("latencyResolution") || byId("latencyBucket");
+
+    return el && el.value ? el.value : "auto";
+
+}
+
 
 async function loadLatency(hours, resolution) {
 
     loadUptime(hours);
 
-    var res = resolution
-        || (byId("latencyResolution") && byId("latencyResolution").value)
-        || "raw";
+    var res = resolution || latencyResolution() || "auto";
 
     // Raw 30-day view would plot tens of thousands of points.
     // Coerce to hourly averages unless the user explicitly wants raw.
@@ -1072,10 +1161,7 @@ async function loadLatency(hours, resolution) {
 
 function handleLatencyRange(value) {
 
-    loadLatency(
-        value,
-        byId("latencyResolution") && byId("latencyResolution").value
-    );
+    loadLatency(value, latencyResolution());
 
 }
 
@@ -1086,6 +1172,15 @@ function handleLatencyResolution(value) {
         byId("latencyRange").value,
         value
     );
+
+}
+
+
+function handleLatencyBucket(value) {
+
+    handleLatencyResolution(value);
+
+}
 
 }
 
@@ -1141,7 +1236,7 @@ function renderLatencyChart() {
 
                 data: {
 
-                    labels: data.labels,
+                    labels: data.labels.map(formatUtcToLocal),
 
                     datasets: [
 
@@ -1323,7 +1418,7 @@ async function loadSpeedtest(hours, resolution) {
                     document.createElement("tr");
 
                 row.innerHTML = `
-                    <td>${escapeHtml(result.timestamp)}</td>
+                    <td title="${escapeHtml(result.timestamp)} UTC">${escapeHtml(formatUtcToLocal(result.timestamp))}</td>
                     <td class="num">${withUnit(result.download, "Mbps")}</td>
                     <td class="num">${withUnit(result.upload, "Mbps")}</td>
                     <td class="num">${withUnit(result.ping, "ms")}</td>
@@ -1401,7 +1496,7 @@ function renderSpeedtestChart() {
 
                 data: {
 
-                    labels: data.labels,
+                    labels: data.labels.map(formatUtcToLocal),
 
                     datasets: [
 
@@ -1512,7 +1607,8 @@ async function loadIncidents() {
 
                 const li = document.createElement("li");
                 li.textContent =
-                    i.checks.join(", ") + " down since " + i.started_at;
+                    i.checks.join(", ") + " down since " + formatUtcToLocal(i.started_at);
+                li.title = i.started_at + " UTC";
                 list.appendChild(li);
 
             });
@@ -1549,8 +1645,8 @@ async function loadIncidents() {
                     (i.outage_count > 1
                         ? " (" + i.outage_count + " outages)"
                         : "") + "</td>" +
-                "<td>" + escapeHtml(i.started_at) + "</td>" +
-                "<td>" + escapeHtml(i.ended_at || "ongoing") + "</td>" +
+                "<td title=\"" + escapeHtml(i.started_at) + " UTC\">" + escapeHtml(formatUtcToLocal(i.started_at)) + "</td>" +
+                "<td>" + escapeHtml(i.ended_at ? formatUtcToLocal(i.ended_at) : "ongoing") + "</td>" +
                 '<td class="num">' +
                     escapeHtml(durationLabel(i.duration)) +
                 "</td>" +

@@ -62,6 +62,15 @@ function toggleTheme(){
     if(btn){btn.setAttribute("aria-pressed",next==="dark"?"true":"false");}
 }
 let overviewData = null;
+function pad2(n){ return String(n).padStart(2, "0"); }
+function formatUtcToLocal(ts){
+    if (!ts) return ts;
+    const d = new Date(String(ts).replace(" ", "T") + "Z");
+    if (isNaN(d.getTime())) return ts;
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-"
+        + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":"
+        + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+}
 function esc(s){return String(s==null?"--":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 async function loadOverview(){
   const h=document.getElementById("overviewHours").value;
@@ -99,7 +108,7 @@ function renderOverview(){
       rows+='<div class="overview-row"><span class="overview-check">'+esc(t)+'</span><span class="overview-status '+((st==="UP")?"online":"offline")+'">'+esc(st)+'</span><span class="overview-num">'+esc(lat)+'</span><span class="overview-num">'+esc(up)+'</span></div>';
     });
     const bad=(c.failing&&c.failing.length)?"Failing: "+esc(c.failing.join(", ")):"All checks passing";
-    card.innerHTML='<div class="overview-top"><span class="overview-dot"></span><div><h2>'+esc(c.name)+'</h2><p>'+esc(bad)+' • '+esc(c.last_check||"no data")+'</p></div><a class="overview-open" href="/dashboard?company='+encodeURIComponent(c.name)+'">Open →</a></div><div class="overview-rows">'+rows+'</div>';
+    card.innerHTML='<div class="overview-top"><span class="overview-dot"></span><div><h2>'+esc(c.name)+'</h2><p>'+esc(bad)+' • '+esc(c.last_check?formatUtcToLocal(c.last_check):"no data")+'</p></div><a class="overview-open" href="/dashboard?company='+encodeURIComponent(c.name)+'">Open →</a></div><div class="overview-rows">'+rows+'</div>';
     grid.appendChild(card);
   });
 }
